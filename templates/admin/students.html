@@ -58,10 +58,25 @@
         <div class="form-group"><label>Phone *</label><input id="fPhone" type="text" placeholder="9XXXXXXXXX"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Email</label><input id="fEmail" type="email" placeholder="rahul@email.com"></div>
+        <div class="form-group"><label>Email *</label><input id="fEmail" type="email" placeholder="rahul@email.com"></div>
         <div class="form-group"><label>Password *</label><input id="fPass" type="password" placeholder="Min 6 chars"></div>
       </div>
-      <div class="form-group"><label>Address</label><input id="fAddr" type="text" placeholder="Village, District, State"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Date of Birth *</label><input id="fDob" type="date"></div>
+        <div class="form-group"><label>Gender *</label>
+          <select id="fGender" style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);height:38px">
+            <option value="">Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Guardian Name *</label><input id="fGuardName" type="text" placeholder="Parent / Guardian full name"></div>
+        <div class="form-group"><label>Guardian Phone *</label><input id="fGuardPhone" type="text" placeholder="9XXXXXXXXX"></div>
+      </div>
+      <div class="form-group"><label>Address *</label><input id="fAddr" type="text" placeholder="Village, District, State"></div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
@@ -131,6 +146,10 @@ function viewStudent(s) {
       <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Student ID</div><div class="mono">${escHtml(s.student_id)}</div></div>
       <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Phone</div><div>${escHtml(s.phone||"—")}</div></div>
       <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Email</div><div>${escHtml(s.email||"—")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Date of Birth</div><div>${escHtml(s.dob||"—")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Gender</div><div>${escHtml(s.gender||"—")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Guardian Name</div><div>${escHtml(s.guardian_name||"—")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Guardian Phone</div><div>${escHtml(s.guardian_phone||"—")}</div></div>
       <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Status</div><div>${statusBadge(s.active?"active":"inactive")}</div></div>
       <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Joined</div><div>${formatDate(s.created_at)}</div></div>
       <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Address</div><div>${escHtml(s.address||"—")}</div></div>
@@ -146,15 +165,37 @@ async function addStudent() {
   const btn = document.getElementById("addBtn");
   const err = document.getElementById("addErr");
   err.classList.add("hidden");
-  const data = { name:document.getElementById("fName").value.trim(), phone:document.getElementById("fPhone").value.trim(),
-    email:document.getElementById("fEmail").value.trim(), password:document.getElementById("fPass").value,
-    address:document.getElementById("fAddr").value.trim() };
-  if (!data.name||!data.phone||!data.password) { err.textContent="Name, phone and password are required."; err.classList.remove("hidden"); return; }
+  const data = {
+    name:          document.getElementById("fName").value.trim(),
+    phone:         document.getElementById("fPhone").value.trim(),
+    email:         document.getElementById("fEmail").value.trim(),
+    password:      document.getElementById("fPass").value,
+    dob:           document.getElementById("fDob").value,
+    gender:        document.getElementById("fGender").value,
+    guardian_name: document.getElementById("fGuardName").value.trim(),
+    guardian_phone:document.getElementById("fGuardPhone").value.trim(),
+    address:       document.getElementById("fAddr").value.trim()
+  };
+  const missing = ["name","phone","email","password","dob","gender","guardian_name","guardian_phone","address"]
+    .filter(k => !data[k]);
+  if (missing.length) {
+    err.textContent = "All fields are required: " + missing.join(", ");
+    err.classList.remove("hidden"); return;
+  }
   showLoading(btn,"Adding…");
   const res = await api.post("/admin/students", data);
   stopLoading(btn);
-  if (res?.ok) { closeModal("addModal"); showToast("Student added successfully","success"); loadStudents(); }
-  else { err.textContent = res?.data?.error||"Failed to add student."; err.classList.remove("hidden"); }
+  if (res?.ok) {
+    closeModal("addModal");
+    // reset form
+    ["fName","fPhone","fEmail","fPass","fDob","fGuardName","fGuardPhone","fAddr"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("fGender").value = "";
+    showToast("Student added successfully","success");
+    loadStudents();
+  } else {
+    err.textContent = res?.data?.error||"Failed to add student.";
+    err.classList.remove("hidden");
+  }
 }
 
 async function deactivate(sid) {
