@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teacher Login — OSEDu</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body style="background:#111;min-height:100vh">
+<div class="login-layout">
+  <div class="login-left">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:40px">
+        <div class="sb-mark">OS</div>
+        <div><div class="sb-name" style="font-size:15px">OSEDu</div><div class="sb-sub">Teacher Portal</div></div>
+      </div>
+      <h1 style="font-size:32px;color:#fff;font-weight:700;line-height:1.2;margin-bottom:14px">Teacher<br>Portal</h1>
+      <p style="color:#888;font-size:14px;line-height:1.7">Manage your courses, review student submissions, grade assignments, and track class progress.</p>
+      <div style="margin-top:40px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px;color:#666;font-size:13px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#555;flex-shrink:0"></span>Grade student submissions
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;color:#666;font-size:13px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#555;flex-shrink:0"></span>Create course assignments
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;color:#666;font-size:13px">
+          <span style="width:6px;height:6px;border-radius:50%;background:#555;flex-shrink:0"></span>Monitor course resources
+        </div>
+      </div>
+    </div>
+    <p style="color:#555;font-size:12px">OS Education Center &bull; Goalpara, Assam</p>
+  </div>
+
+  <div class="login-right">
+    <div class="login-box">
+      <h2>Teacher sign in</h2>
+      <p class="sub">Use your Teacher ID or registered email address.</p>
+      <div id="errBox" class="alert alert-error hidden"></div>
+      <div class="form-group">
+        <label>Teacher ID or Email</label>
+        <input id="identifier" type="text" placeholder="OSEC-TCH-XXXXXX or email@example.com"
+               autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <div style="position:relative">
+          <input id="password" type="password" placeholder="••••••••"
+                 autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="togglePwd()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--g5);display:flex">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+          </button>
+        </div>
+      </div>
+      <button id="loginBtn" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">Sign In</button>
+      <p style="margin-top:20px;font-size:12.5px;color:var(--g5);text-align:center">
+        Admin? <a href="/admin/login" style="color:var(--black);text-decoration:underline">Admin panel</a>
+        &nbsp;&bull;&nbsp;
+        Student? <a href="/student/login" style="color:var(--black);text-decoration:underline">Student portal</a>
+      </p>
+    </div>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script>
+  // Redirect if already logged in as teacher
+  if (Auth.isLoggedIn() && (Auth.getRole() === "teacher" || Auth.getRole() === "admin")) {
+    window.location.href = "/teacher/dashboard";
+  }
+  function togglePwd() {
+    const i = document.getElementById("password");
+    i.type = i.type === "password" ? "text" : "password";
+  }
+  async function doLogin() {
+    const btn = document.getElementById("loginBtn");
+    const err = document.getElementById("errBox");
+    const id  = document.getElementById("identifier").value.trim();
+    const pw  = document.getElementById("password").value;
+    err.classList.add("hidden");
+    if (!id || !pw) { err.textContent = "Please enter your Teacher ID/email and password."; err.classList.remove("hidden"); return; }
+    showLoading(btn, "Signing in…");
+    const res = await teacherLogin(id, pw);
+    stopLoading(btn);
+    if (res?.ok) { window.location.href = "/teacher/dashboard"; }
+    else { err.textContent = res?.data?.error || "Login failed. Check your credentials."; err.classList.remove("hidden"); }
+  }
+</script>
+</body></html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teacher Dashboard — OSEDu</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div>
+          <div style="font-family:var(--fd);font-weight:600;font-size:16px">Teacher Dashboard</div>
+          <div style="font-size:11.5px;color:var(--g5)">Welcome, <span id="teacherName"></span></div>
+        </div>
+      </div>
+      <span class="mono" id="teacherId" style="font-size:12px;color:var(--g5)"></span>
+    </header>
+
+    <main class="page-content">
+      <!-- Stats -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px">
+        <div class="stat-card"><div class="stat-label">My Courses</div><div class="stat-value" id="sCourses">—</div></div>
+        <div class="stat-card"><div class="stat-label">My Assignments</div><div class="stat-value" id="sAssignments">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pending Grading</div><div class="stat-value" id="sPending" style="color:#b00">—</div><div class="stat-sub">submissions waiting</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- My courses -->
+        <div class="card">
+          <div class="card-header"><span class="card-title">My Courses</span></div>
+          <div id="courseList"><div style="text-align:center;padding:24px;color:var(--g5);font-size:13px">Loading…</div></div>
+        </div>
+
+        <!-- Recent assignments + pending count -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Assignments</span>
+            <span class="badge badge-danger" id="pendingBadge" style="display:none"></span>
+          </div>
+          <div id="pendingList"><div style="text-align:center;padding:24px;color:var(--g5);font-size:13px">Loading…</div></div>
+        </div>
+
+        <!-- Change password -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="card-header"><span class="card-title">Change Password</span></div>
+          <div style="max-width:400px">
+            <div id="pwErr" class="alert alert-error hidden"></div>
+            <div id="pwOk"  class="alert alert-success hidden"></div>
+            <div class="form-group"><label>Current Password</label><input id="pwCurrent" type="password" placeholder="••••••••"></div>
+            <div class="form-row">
+              <div class="form-group"><label>New Password</label><input id="pwNew" type="password" placeholder="Min 6 chars"></div>
+              <div class="form-group"><label>Confirm New</label><input id="pwConfirm" type="password" placeholder="Repeat new password"></div>
+            </div>
+            <button id="pwBtn" class="btn btn-primary btn-sm" onclick="changePassword()">Update Password</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+// Teacher auth check — uses requireTeacher() from api.js (allows teacher or admin role)
+if (!requireTeacher()) throw "";
+renderSidebar("dashboard", "teacher");
+
+document.getElementById("teacherName").textContent = Auth.getName() || "Teacher";
+
+async function loadDashboard() {
+  const res = await api.get("/teacher/dashboard");
+  if (!res?.ok) { if (res?.status === 401) logout(); return; }
+  const d = res.data;
+
+  document.getElementById("teacherId").textContent = d.teacher?.teacher_id || "";
+  document.getElementById("sCourses").textContent     = (d.courses_taught || []).length;
+  document.getElementById("sAssignments").textContent = d.recent_assignments?.length ?? "—";
+  document.getElementById("sPending").textContent     = d.pending_submissions ?? "—";
+
+  if (d.pending_submissions > 0) {
+    const pb = document.getElementById("pendingBadge");
+    pb.textContent = d.pending_submissions;
+    pb.style.display = "inline-flex";
+  }
+
+  const courses = d.courses_taught || [];
+  document.getElementById("courseList").innerHTML = courses.length
+    ? courses.map(c=>`
+      <div style="padding:11px 0;border-bottom:1px solid var(--g2);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:500;font-size:13.5px">${escHtml(c.name||c.course_id)}</div>
+          <div class="mono" style="font-size:11px;color:var(--g5);margin-top:2px">${escHtml(c.course_id)}</div>
+        </div>
+        <span class="badge badge-success">Active</span>
+      </div>`).join("")
+    : `<div class="empty"><p>No courses assigned yet.</p></div>`;
+
+  const pending = d.recent_assignments || [];
+  document.getElementById("pendingList").innerHTML = pending.length
+    ? pending.map(s=>`
+      <div style="padding:11px 0;border-bottom:1px solid var(--g2)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:500;font-size:13px">${escHtml(s.title||s.assignment_id)}</span>
+        </div>
+        <div style="font-size:12px;color:var(--g5)">Course: <span class="mono">${escHtml(s.course_id||"—")}</span></div>
+        <div style="font-size:12px;color:var(--g5)">${formatDate(s.created_at)}</div>
+      </div>`).join("")
+    : `<div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><p>All caught up!</p></div>`;
+}
+
+async function changePassword() {
+  const btn = document.getElementById("pwBtn");
+  const err = document.getElementById("pwErr");
+  const ok  = document.getElementById("pwOk");
+  err.classList.add("hidden"); ok.classList.add("hidden");
+  const current = document.getElementById("pwCurrent").value;
+  const newPw   = document.getElementById("pwNew").value;
+  const confirm = document.getElementById("pwConfirm").value;
+  if (!current || !newPw) { err.textContent = "All fields are required."; err.classList.remove("hidden"); return; }
+  if (newPw !== confirm)  { err.textContent = "New passwords do not match."; err.classList.remove("hidden"); return; }
+  if (newPw.length < 6)   { err.textContent = "Password must be at least 6 characters."; err.classList.remove("hidden"); return; }
+  showLoading(btn, "Updating…");
+  const res = await api.put("/teacher/profile/password", { old_password: current, new_password: newPw });
+  stopLoading(btn);
+  if (res?.ok) { ok.textContent = "Password updated successfully."; ok.classList.remove("hidden"); document.getElementById("pwCurrent").value=""; document.getElementById("pwNew").value=""; document.getElementById("pwConfirm").value=""; }
+  else { err.textContent = res?.data?.error || "Failed to update password."; err.classList.remove("hidden"); }
+}
+
+loadDashboard();
+</script>
+</body></html>

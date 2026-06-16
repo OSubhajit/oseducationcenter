@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Batches — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Batches</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        New Batch
+      </button>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="batchCount">Batches</span>
+          <select id="courseFilter" style="width:200px" onchange="page=1;loadBatches()">
+            <option value="">All courses</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Batch ID</th><th>Name</th><th>Course</th><th>Start</th><th>End</th><th>Students</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Create Batch Modal -->
+<div class="modal-backdrop hidden" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>New Batch</h3>
+      <button class="modal-close" onclick="closeModal()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="modalErr" class="alert alert-error hidden"></div>
+      <div class="form-group"><label>Batch Name *</label><input id="fName" type="text" placeholder="e.g. Morning Batch Jan-2026"></div>
+      <div class="form-group"><label>Course *</label><select id="fCourse"><option value="">Select course…</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Start Date *</label><input id="fStart" type="date"></div>
+        <div class="form-group"><label>End Date *</label><input id="fEnd" type="date"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Schedule *</label><input id="fSchedule" type="text" placeholder="e.g. Mon/Wed/Fri 5-7pm"></div>
+        <div class="form-group"><label>Max Students</label><input id="fMax" type="number" placeholder="30" min="1"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveBatch()">Create Batch</button>
+    </div>
+  </div>
+</div>
+
+<!-- Enrol Student Modal -->
+<div class="modal-backdrop hidden" id="enrolModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Enrol Student</h3>
+      <button class="modal-close" onclick="closeModal('enrolModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="enrolErr" class="alert alert-error hidden"></div>
+      <p style="font-size:13px;color:var(--g6);margin-bottom:14px">Enrolling in batch: <strong id="enrolBatchId"></strong></p>
+      <div class="form-group"><label>Student ID *</label><input id="eStudentId" type="text" placeholder="OSEC-STU-XXXXXX" style="font-family:var(--fm)"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('enrolModal')">Cancel</button>
+      <button class="btn btn-primary" id="enrolBtn" onclick="enrolStudent()">Enrol</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("batches","admin");
+let page=1, activeBatchId=null;
+
+async function loadCourseOptions() {
+  const res = await api.get("/admin/courses?per_page=100");
+  if (!res?.ok) return;
+  const opts = (res.data.courses||[]).map(c=>`<option value="${c.course_id}">${escHtml(c.name)}</option>`).join("");
+  document.getElementById("courseFilter").innerHTML += opts;
+  document.getElementById("fCourse").innerHTML = `<option value="">Select course…</option>${opts}`;
+}
+
+async function loadBatches() {
+  const cf = document.getElementById("courseFilter").value;
+  const res = await api.get(`/admin/batches?page=${page}&per_page=20${cf?"&course_id="+cf:""}`);
+  if (!res?.ok) return;
+  const { batches=[], pagination={} } = res.data;
+  document.getElementById("batchCount").textContent = `Batches (${pagination.total||0})`;
+  if (!batches.length) {
+    document.getElementById("tbody").innerHTML = `<tr><td colspan="8"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg><p>No batches found.</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML=""; return;
+  }
+  document.getElementById("tbody").innerHTML = batches.map(b=>`<tr>
+    <td><span class="mono">${escHtml(b.batch_id)}</span></td>
+    <td><span style="font-weight:500">${escHtml(b.name)}</span></td>
+    <td><span class="mono" style="font-size:11px">${escHtml(b.course_id)}</span></td>
+    <td>${formatDate(b.start_date)}</td>
+    <td>${formatDate(b.end_date)}</td>
+    <td>${(b.students||[]).length} / ${b.max_students||"—"}</td>
+    <td>${statusBadge(b.active?"active":"inactive")}</td>
+    <td style="text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick="openEnrol('${b.batch_id}')">Enrol</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteBatch('${b.batch_id}','${escHtml(b.name)}')">Delete</button>
+    </td>
+  </tr>`).join("");
+  const el=document.getElementById("pagination"); let html="";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadBatches()">${i}</button>`;
+  el.innerHTML=html;
+}
+
+function openModal() { document.getElementById("modal").classList.remove("hidden"); document.getElementById("modalErr").classList.add("hidden"); }
+function closeModal(id="modal") { document.getElementById(id).classList.add("hidden"); }
+function openEnrol(batchId) { activeBatchId=batchId; document.getElementById("enrolBatchId").textContent=batchId; document.getElementById("eStudentId").value=""; document.getElementById("enrolErr").classList.add("hidden"); document.getElementById("enrolModal").classList.remove("hidden"); }
+
+async function saveBatch() {
+  const btn=document.getElementById("saveBtn"),err=document.getElementById("modalErr");
+  err.classList.add("hidden");
+  const data={name:document.getElementById("fName").value.trim(), course_id:document.getElementById("fCourse").value, start_date:document.getElementById("fStart").value, end_date:document.getElementById("fEnd").value, schedule:document.getElementById("fSchedule").value.trim(), max_students:parseInt(document.getElementById("fMax").value)||30};
+  if(!data.name||!data.course_id||!data.start_date||!data.end_date||!data.schedule){err.textContent="Name, course, dates and schedule are required.";err.classList.remove("hidden");return;}
+  showLoading(btn,"Creating…");
+  const res=await api.post("/admin/batches",data);
+  stopLoading(btn);
+  if(res?.ok){closeModal();showToast("Batch created","success");loadBatches();}
+  else{err.textContent=res?.data?.error||"Failed.";err.classList.remove("hidden");}
+}
+
+async function enrolStudent() {
+  const btn=document.getElementById("enrolBtn"),err=document.getElementById("enrolErr");
+  err.classList.add("hidden");
+  const sid=document.getElementById("eStudentId").value.trim().toUpperCase();
+  if(!sid){err.textContent="Student ID is required.";err.classList.remove("hidden");return;}
+  showLoading(btn,"Enrolling…");
+  const res=await api.post(`/admin/batches/${activeBatchId}/enrol`,{student_id:sid});
+  stopLoading(btn);
+  if(res?.ok){closeModal("enrolModal");showToast("Student enrolled","success");loadBatches();}
+  else{err.textContent=res?.data?.error||"Failed.";err.classList.remove("hidden");}
+}
+
+async function deleteBatch(batchId, name) {
+  if (!confirm(`Delete batch "${name}"?\nThis cannot be undone. Blocked if students are enrolled.`)) return;
+  const res = await api.delete(`/admin/batches/${batchId}`);
+  if (res?.ok) { showToast("Batch deleted", "success"); loadBatches(); }
+  else showToast(res?.data?.error || "Delete failed.", "error");
+}
+
+loadCourseOptions().then(loadBatches);
+</script>
+</body></html>

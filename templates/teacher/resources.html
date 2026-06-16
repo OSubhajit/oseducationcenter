@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resources — OSEDu Teacher</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Resources</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openUploadModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        Upload Resource
+      </button>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="resCount">Resources</span>
+          <select id="courseFilter" style="width:200px" onchange="page=1;loadResources()">
+            <option value="">All my courses</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Title</th><th>Course</th><th>Type</th><th>Category</th><th>Uploaded</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-backdrop hidden" id="uploadModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Upload Resource</h3>
+      <button class="modal-close" onclick="closeModal('uploadModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="uploadErr" class="alert alert-error hidden"></div>
+      <div class="form-group"><label>Title *</label><input id="fTitle" type="text" placeholder="e.g. Chapter 3 Notes"></div>
+      <div class="form-group"><label>Course *</label><select id="fCourse"><option value="">Select course…</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select id="fType">
+            <option value="file">File Upload</option>
+            <option value="link">External Link</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Category</label>
+          <select id="fCat">
+            <option value="lecture">Lecture</option>
+            <option value="assignment">Assignment Material</option>
+            <option value="reference">Reference</option>
+            <option value="video">Video</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div id="fileSection" class="form-group"><label>File *</label><input id="fFile" type="file" accept="*/*"></div>
+      <div id="linkSection" class="form-group hidden"><label>URL *</label><input id="fLink" type="url" placeholder="https://…"></div>
+      <div class="form-group"><label>Description</label><textarea id="fDesc" rows="2" placeholder="Optional description…" style="resize:vertical"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancel</button>
+      <button class="btn btn-primary" id="uploadBtn" onclick="uploadResource()">Upload</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireTeacher()) throw "";
+renderSidebar("resources", "teacher");
+
+let page = 1, myCourses = [];
+
+document.getElementById("fType").addEventListener("change", function() {
+  const isLink = this.value === "link";
+  document.getElementById("fileSection").classList.toggle("hidden", isLink);
+  document.getElementById("linkSection").classList.toggle("hidden", !isLink);
+});
+
+async function loadMyCourses() {
+  const res = await api.get("/teacher/dashboard");
+  if (!res?.ok) return;
+  myCourses = res.data.courses_taught || [];
+  const opts = myCourses.map(c => `<option value="${c.course_id}">${escHtml(c.name||c.course_id)}</option>`).join("");
+  document.getElementById("courseFilter").innerHTML = `<option value="">All my courses</option>${opts}`;
+  document.getElementById("fCourse").innerHTML = `<option value="">Select course…</option>${opts}`;
+}
+
+async function loadResources() {
+  const cf = document.getElementById("courseFilter").value;
+  const res = await api.get(`/resources/?page=${page}&per_page=20${cf?"&course_id="+cf:""}`);
+  if (!res?.ok) return;
+  const { resources=[], pagination={} } = res.data;
+  document.getElementById("resCount").textContent = `Resources (${pagination.total||resources.length})`;
+  if (!resources.length) {
+    document.getElementById("tbody").innerHTML = `<tr><td colspan="6"><div class="empty"><p>No resources uploaded yet.</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML = ""; return;
+  }
+  document.getElementById("tbody").innerHTML = resources.map(r => `<tr>
+    <td><span style="font-weight:500">${escHtml(r.title)}</span>${r.description?`<div style="font-size:11.5px;color:var(--g5);margin-top:2px">${escHtml(r.description)}</div>`:""}</td>
+    <td><span class="mono" style="font-size:11px">${escHtml(r.course_id||"—")}</span></td>
+    <td><span class="badge badge-outline">${escHtml(r.resource_type||"file")}</span></td>
+    <td>${escHtml(r.category||"—")}</td>
+    <td style="font-size:12px;color:var(--g5)">${formatDate(r.created_at)}</td>
+    <td style="text-align:right">
+      ${r.external_url ? `<a href="${escHtml(r.external_url)}" target="_blank" class="btn btn-ghost btn-sm">Open</a>` : `<a href="/api/resources/${r.resource_id}/download" class="btn btn-ghost btn-sm">Download</a>`}
+      <button class="btn btn-danger btn-sm" onclick="deleteResource('${r.resource_id}','${escHtml(r.title)}')">Delete</button>
+    </td>
+  </tr>`).join("");
+  const el = document.getElementById("pagination"); let html = "";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadResources()">${i}</button>`;
+  el.innerHTML = html;
+}
+
+function openUploadModal() {
+  document.getElementById("uploadModal").classList.remove("hidden");
+  document.getElementById("uploadErr").classList.add("hidden");
+  document.getElementById("fTitle").value="";
+  document.getElementById("fFile").value="";
+  document.getElementById("fLink").value="";
+  document.getElementById("fDesc").value="";
+}
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+async function uploadResource() {
+  const btn = document.getElementById("uploadBtn");
+  const err = document.getElementById("uploadErr");
+  err.classList.add("hidden");
+  const title   = document.getElementById("fTitle").value.trim();
+  const courseId= document.getElementById("fCourse").value;
+  const type    = document.getElementById("fType").value;
+  const cat     = document.getElementById("fCat").value;
+  const desc    = document.getElementById("fDesc").value.trim();
+  if (!title || !courseId) { err.textContent="Title and course are required."; err.classList.remove("hidden"); return; }
+
+  showLoading(btn, "Uploading…");
+  let res;
+
+  if (type === "link") {
+    const url = document.getElementById("fLink").value.trim();
+    if (!url) { err.textContent="URL is required for link type."; err.classList.remove("hidden"); stopLoading(btn); return; }
+    res = await api.post("/resources/", { title, course_id: courseId, resource_type:"link", category:cat, description:desc, external_url:url });
+  } else {
+    const file = document.getElementById("fFile").files[0];
+    if (!file) { err.textContent="Please select a file."; err.classList.remove("hidden"); stopLoading(btn); return; }
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("title", title);
+    fd.append("course_id", courseId);
+    fd.append("category", cat);
+    fd.append("description", desc);
+    const csrf = _getCsrfToken();
+    const raw = await fetch("/api/resources/upload", {
+      method: "POST",
+      headers: csrf ? { "X-CSRF-TOKEN": csrf } : {},
+      credentials: "same-origin",
+      body: fd
+    });
+    const data = await raw.json().catch(()=>({}));
+    res = { ok: raw.ok, status: raw.status, data };
+  }
+
+  stopLoading(btn);
+  if (res?.ok) { closeModal("uploadModal"); showToast("Resource uploaded", "success"); loadResources(); }
+  else { err.textContent = res?.data?.error||"Upload failed."; err.classList.remove("hidden"); }
+}
+
+async function deleteResource(resId, title) {
+  if (!confirm(`Delete resource "${title}"?`)) return;
+  const res = await api.delete(`/resources/${resId}`);
+  if (res?.ok) { showToast("Resource deleted", "success"); loadResources(); }
+  else showToast(res?.data?.error||"Delete failed.", "error");
+}
+
+loadMyCourses().then(loadResources);
+</script>
+</body></html>

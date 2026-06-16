@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exams — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Exams</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        New Exam
+      </button>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="examCount">Exams</span>
+          <div style="display:flex;gap:8px">
+            <select id="courseFilter" style="width:180px" onchange="page=1;loadExams()">
+              <option value="">All courses</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Exam ID</th><th>Title</th><th>Course</th><th>Duration</th><th>Pass Marks</th><th>Questions</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop hidden" id="modal">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <h3 id="modalTitle">New Exam</h3>
+      <button class="modal-close" onclick="closeModal()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="modalErr" class="alert alert-error hidden"></div>
+      <div class="form-group"><label>Exam Title *</label><input id="fTitle" type="text" placeholder="e.g. Computer Basics Final Exam"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Course *</label><select id="fCourse"><option value="">Select…</option></select></div>
+        <div class="form-group"><label>Duration (minutes) *</label><input id="fDur" type="number" placeholder="60" min="5"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Total Marks *</label><input id="fTotal" type="number" placeholder="100" min="1"></div>
+        <div class="form-group"><label>Pass Marks *</label><input id="fPass" type="number" placeholder="40" min="1"></div>
+      </div>
+      <div class="form-group"><label>Instructions</label><textarea id="fInstr" placeholder="Read all questions carefully…"></textarea></div>
+      <div style="margin-top:4px;padding-top:14px;border-top:1px solid var(--g3)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:500">Questions from question bank</div>
+          <div style="font-size:12px;color:var(--g5)">Enter Question IDs, one per line</div>
+        </div>
+        <textarea id="fQids" placeholder="OSEC-Q-XXXXXX&#10;OSEC-Q-XXXXXX" style="min-height:100px;font-family:var(--fm);font-size:12px"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveExam()">Save Exam</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("exams","admin");
+let page=1, editId=null;
+
+async function loadCourseOptions(){
+  const res=await api.get("/admin/courses?per_page=100");
+  if(!res?.ok) return;
+  const opts=(res.data.courses||[]).map(c=>`<option value="${c.course_id}">${escHtml(c.name)}</option>`).join("");
+  document.getElementById("courseFilter").innerHTML+=opts;
+  document.getElementById("fCourse").innerHTML=`<option value="">Select…</option>${opts}`;
+}
+
+async function loadExams(){
+  const cf=document.getElementById("courseFilter").value;
+  const res=await api.get(`/admin/exams?page=${page}&per_page=20${cf?"&course_id="+cf:""}`);
+  if(!res?.ok) return;
+  const {exams=[],pagination={}} = res.data;
+  document.getElementById("examCount").textContent=`Exams (${pagination.total||0})`;
+  if(!exams.length){
+    document.getElementById("tbody").innerHTML=`<tr><td colspan="8"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg><p>No exams yet.</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML=""; return;
+  }
+  document.getElementById("tbody").innerHTML=exams.map(e=>`<tr>
+    <td><span class="mono">${escHtml(e.exam_id)}</span></td>
+    <td><span style="font-weight:500">${escHtml(e.title)}</span></td>
+    <td><span class="mono" style="font-size:11px">${escHtml(e.course_id)}</span></td>
+    <td>${e.duration_minutes||"—"} min</td>
+    <td>${e.pass_marks||"—"} / ${e.total_marks||"—"}</td>
+    <td>${(e.questions||[]).length}</td>
+    <td>${statusBadge(e.active?"active":"inactive")}</td>
+    <td style="text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick='editExam(${JSON.stringify(e)})'>Edit</button>
+    </td>
+  </tr>`).join("");
+  const el=document.getElementById("pagination"); let html="";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadExams()">${i}</button>`;
+  el.innerHTML=html;
+}
+
+function openModal(){
+  editId=null;
+  document.getElementById("modalTitle").textContent="New Exam";
+  document.getElementById("saveBtn").textContent="Create Exam";
+  ["fTitle","fDur","fTotal","fPass","fInstr","fQids"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("fCourse").value="";
+  document.getElementById("modalErr").classList.add("hidden");
+  document.getElementById("modal").classList.remove("hidden");
+}
+function closeModal(){document.getElementById("modal").classList.add("hidden");}
+function editExam(e){
+  editId=e.exam_id;
+  document.getElementById("modalTitle").textContent="Edit Exam";
+  document.getElementById("saveBtn").textContent="Save Changes";
+  document.getElementById("fTitle").value=e.title||"";
+  document.getElementById("fCourse").value=e.course_id||"";
+  document.getElementById("fDur").value=e.duration_minutes||"";
+  document.getElementById("fTotal").value=e.total_marks||"";
+  document.getElementById("fPass").value=e.pass_marks||"";
+  document.getElementById("fInstr").value=e.instructions||"";
+  // e.questions is [{q_id,...}] — extract just the IDs for the textarea
+  const qids=(e.questions||[]).map(q=>typeof q==="object"?(q.q_id||q.question_id||""):String(q)).filter(Boolean);
+  document.getElementById("fQids").value=qids.join("\n");
+  document.getElementById("modalErr").classList.add("hidden");
+  document.getElementById("modal").classList.remove("hidden");
+}
+
+async function saveExam(){
+  const btn=document.getElementById("saveBtn"),err=document.getElementById("modalErr");
+  err.classList.add("hidden");
+  // Send as "question_ids" so admin.py uses the question-bank lookup path
+  const question_ids=document.getElementById("fQids").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const totalMarks=parseInt(document.getElementById("fTotal").value)||0;
+  const passMarks =parseInt(document.getElementById("fPass").value)||0;
+  const data={
+    title           :document.getElementById("fTitle").value.trim(),
+    course_id       :document.getElementById("fCourse").value,
+    duration_minutes:parseInt(document.getElementById("fDur").value)||0,
+    total_marks     :totalMarks,
+    pass_marks      :passMarks,
+    instructions    :document.getElementById("fInstr").value.trim(),
+    question_ids,
+  };
+  if(!data.title||!data.course_id||!data.duration_minutes||!data.total_marks||!data.pass_marks){
+    err.textContent="Title, course, duration and marks are required.";err.classList.remove("hidden");return;
+  }
+  if(!question_ids.length){
+    err.textContent="At least one Question ID is required.";err.classList.remove("hidden");return;
+  }
+  if(passMarks>totalMarks){
+    err.textContent=`Pass marks (${passMarks}) cannot exceed total marks (${totalMarks}).`;err.classList.remove("hidden");return;
+  }
+  if(passMarks<=0||totalMarks<=0){
+    err.textContent="Marks must be greater than zero.";err.classList.remove("hidden");return;
+  }
+  showLoading(btn,"Saving…");
+  const res=editId?await api.put(`/admin/exams/${editId}`,data):await api.post("/admin/exams",data);
+  stopLoading(btn);
+  if(res?.ok){closeModal();showToast(editId?"Exam updated":"Exam created","success");loadExams();}
+  else{err.textContent=res?.data?.error||"Save failed.";err.classList.remove("hidden");}
+}
+loadCourseOptions().then(loadExams);
+</script>
+</body></html>

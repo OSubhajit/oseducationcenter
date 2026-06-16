@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Students — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Students</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Add Student
+      </button>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="search-bar">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="searchInput" placeholder="Search by name, ID, phone…" oninput="debSearch()">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--g6);cursor:pointer">
+              <input type="checkbox" id="showInactive" onchange="loadStudents()"> Show inactive
+            </label>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Student ID</th><th>Phone</th><th>Enrolled</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Add Student Modal -->
+<div class="modal-backdrop hidden" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add New Student</h3>
+      <button class="modal-close" onclick="closeModal('addModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="addErr" class="alert alert-error hidden"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input id="fName" type="text" placeholder="Rahul Das"></div>
+        <div class="form-group"><label>Phone *</label><input id="fPhone" type="text" placeholder="9XXXXXXXXX"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email</label><input id="fEmail" type="email" placeholder="rahul@email.com"></div>
+        <div class="form-group"><label>Password *</label><input id="fPass" type="password" placeholder="Min 6 chars"></div>
+      </div>
+      <div class="form-group"><label>Address</label><input id="fAddr" type="text" placeholder="Village, District, State"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" id="addBtn" onclick="addStudent()">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Student Modal -->
+<div class="modal-backdrop hidden" id="viewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Student Details</h3>
+      <button class="modal-close" onclick="closeModal('viewModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body" id="viewBody"></div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("students","admin");
+
+let page = 1, searchVal = "";
+let debTimer = null;
+function debSearch() { clearTimeout(debTimer); debTimer = setTimeout(() => { searchVal = document.getElementById("searchInput").value.trim(); page = 1; loadStudents(); }, 350); }
+
+async function loadStudents() {
+  const inc = document.getElementById("showInactive").checked ? "&include_inactive=true" : "";
+  const res = await api.get(`/admin/students?page=${page}&per_page=20&search=${encodeURIComponent(searchVal)}${inc}`);
+  if (!res?.ok) return;
+  const { students = [], pagination = {} } = res.data;
+  const tbody = document.getElementById("tbody");
+  if (!students.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg><p>No students found</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML = ""; return;
+  }
+  tbody.innerHTML = students.map(s => `<tr>
+    <td><span style="font-weight:500">${escHtml(s.name)}</span></td>
+    <td><span class="mono">${escHtml(s.student_id)}</span></td>
+    <td>${escHtml(s.phone||"—")}</td>
+    <td>${(s.enrolled_courses||[]).length} course(s)</td>
+    <td>${statusBadge(s.active?"active":"inactive")}</td>
+    <td style="text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick='viewStudent(${JSON.stringify(s)})'>View</button>
+      ${s.active ? `<button class="btn btn-danger btn-sm" onclick="deactivate('${s.student_id}')">Deactivate</button>` : ""}
+    </td>
+  </tr>`).join("");
+  renderPagination(pagination);
+}
+
+function renderPagination(p) {
+  const el = document.getElementById("pagination");
+  if (p.pages <= 1) { el.innerHTML = ""; return; }
+  let html = "";
+  for (let i = 1; i <= p.pages; i++)
+    html += `<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadStudents()">${i}</button>`;
+  el.innerHTML = html;
+}
+
+function viewStudent(s) {
+  document.getElementById("viewBody").innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 20px">
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Name</div><div style="font-weight:500">${escHtml(s.name)}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Student ID</div><div class="mono">${escHtml(s.student_id)}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Phone</div><div>${escHtml(s.phone||"—")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Email</div><div>${escHtml(s.email||"—")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Status</div><div>${statusBadge(s.active?"active":"inactive")}</div></div>
+      <div><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Joined</div><div>${formatDate(s.created_at)}</div></div>
+      <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Address</div><div>${escHtml(s.address||"—")}</div></div>
+      <div style="grid-column:1/-1"><div style="font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Enrolled Courses</div><div>${(s.enrolled_courses||[]).join(", ")||"None"}</div></div>
+    </div>`;
+  document.getElementById("viewModal").classList.remove("hidden");
+}
+
+function openAddModal() { document.getElementById("addModal").classList.remove("hidden"); }
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+async function addStudent() {
+  const btn = document.getElementById("addBtn");
+  const err = document.getElementById("addErr");
+  err.classList.add("hidden");
+  const data = { name:document.getElementById("fName").value.trim(), phone:document.getElementById("fPhone").value.trim(),
+    email:document.getElementById("fEmail").value.trim(), password:document.getElementById("fPass").value,
+    address:document.getElementById("fAddr").value.trim() };
+  if (!data.name||!data.phone||!data.password) { err.textContent="Name, phone and password are required."; err.classList.remove("hidden"); return; }
+  showLoading(btn,"Adding…");
+  const res = await api.post("/admin/students", data);
+  stopLoading(btn);
+  if (res?.ok) { closeModal("addModal"); showToast("Student added successfully","success"); loadStudents(); }
+  else { err.textContent = res?.data?.error||"Failed to add student."; err.classList.remove("hidden"); }
+}
+
+async function deactivate(sid) {
+  if (!confirm("Deactivate this student?")) return;
+  const res = await api.delete(`/admin/students/${sid}`);
+  if (res?.ok) { showToast("Student deactivated","success"); loadStudents(); }
+  else showToast(res?.data?.error||"Failed","error");
+}
+
+loadStudents();
+</script>
+</body></html>
