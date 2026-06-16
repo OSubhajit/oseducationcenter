@@ -45,7 +45,7 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     ADD STUDENT MODAL
+     ADD STUDENT MODAL — all 9 required backend fields
 ═══════════════════════════════════════════════════ -->
 <div class="modal-backdrop hidden" id="addModal">
   <div class="modal">
@@ -88,7 +88,10 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     EDIT STUDENT MODAL  (PUT /admin/students/<id>)
+     EDIT STUDENT MODAL
+     PUT /api/admin/students/<id>
+     allowed: name, phone, address, guardian_name,
+              guardian_phone, active
 ═══════════════════════════════════════════════════ -->
 <div class="modal-backdrop hidden" id="editModal">
   <div class="modal">
@@ -133,7 +136,9 @@
 </div>
 
 <!-- ═══════════════════════════════════════════════════
-     ENROLL IN BATCH MODAL  (POST /admin/batches/<id>/enrol)
+     ENROLL IN BATCH MODAL
+     POST   /api/admin/batches/<batch_id>/enrol
+     DELETE /api/admin/batches/<batch_id>/enrol
 ═══════════════════════════════════════════════════ -->
 <div class="modal-backdrop hidden" id="enrollModal">
   <div class="modal" style="max-width:540px">
@@ -147,14 +152,14 @@
 
       <!-- Current enrollments -->
       <div style="margin-bottom:1.25rem">
-        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px">Currently Enrolled Batches</div>
+        <div class="section-lbl">Currently Enrolled Batches</div>
         <div id="currentBatches" style="font-size:13px;color:var(--g6)">Loading…</div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin-bottom:1.25rem">
+      <hr class="section-divider">
 
       <!-- Enroll in new batch -->
-      <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px">Enroll in a New Batch</div>
+      <div class="section-lbl">Enroll in a New Batch</div>
       <div class="form-group">
         <label>Select Batch</label>
         <select id="batchSelect" class="sel">
@@ -171,11 +176,19 @@
 </div>
 
 <style>
+/* select styling */
 .sel{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);height:38px}
+/* enroll modal rows */
 .enroll-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px}
 .enroll-row .batch-meta{color:var(--g5);font-size:11px;margin-top:1px}
+/* view student grid */
 .dl{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
 .dl-item .lbl{font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+/* course / batch tag pills */
+.tag{display:inline-block;padding:2px 8px;background:var(--g2);border-radius:4px;margin:2px;font-size:12px}
+/* section headings inside modals */
+.section-lbl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px}
+/* divider between view sections */
 .section-divider{border:none;border-top:1px solid var(--border);margin:14px 0}
 </style>
 
@@ -183,23 +196,36 @@
 <script src="/static/js/sidebar.js"></script>
 <script>
 if (!requireAdmin()) throw "";
-renderSidebar("students","admin");
+renderSidebar("students", "admin");
+
+// Named constant — change in one place if per_page ever changes
+const PER_PAGE = 20;
 
 let page = 1, searchVal = "";
 let debTimer = null;
-function debSearch() { clearTimeout(debTimer); debTimer = setTimeout(() => { searchVal = document.getElementById("searchInput").value.trim(); page = 1; loadStudents(); }, 350); }
+function debSearch() {
+  clearTimeout(debTimer);
+  debTimer = setTimeout(() => { searchVal = document.getElementById("searchInput").value.trim(); page = 1; loadStudents(); }, 350);
+}
 
-/* ── LIST ─────────────────────────────────────────── */
+/* ── LIST ─────────────────────────────────────────────────────── */
 async function loadStudents() {
   const inc = document.getElementById("showInactive").checked ? "&include_inactive=true" : "";
-  const res = await api.get(`/admin/students?page=${page}&per_page=20&search=${encodeURIComponent(searchVal)}${inc}`);
+  const res = await api.get(`/admin/students?page=${page}&per_page=${PER_PAGE}&search=${encodeURIComponent(searchVal)}${inc}`);
   if (!res?.ok) return;
-  const { students = [], pagination = {} } = res.data;
+
+  // list_students returns { total, page, per_page, students } — no nested
+  // pagination object. Compute page count here from top-level fields.
+  const { students = [], total = 0, per_page = PER_PAGE } = res.data;
+  const pages = Math.ceil(total / per_page);
+
   const tbody = document.getElementById("tbody");
   if (!students.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg><p>No students found</p></div></td></tr>`;
-    document.getElementById("pagination").innerHTML = ""; return;
+    document.getElementById("pagination").innerHTML = "";
+    return;
   }
+
   tbody.innerHTML = students.map(s => `<tr>
     <td><span style="font-weight:500">${escHtml(s.name)}</span></td>
     <td><span class="mono">${escHtml(s.student_id)}</span></td>
@@ -213,22 +239,24 @@ async function loadStudents() {
       ${s.active ? `<button class="btn btn-danger btn-sm" onclick="deactivate('${s.student_id}')">Deactivate</button>` : ""}
     </td>
   </tr>`).join("");
-  renderPagination(pagination);
+
+  renderPagination(pages);
 }
 
-function renderPagination(p) {
+// Accepts a plain number — computed from total/per_page in loadStudents()
+function renderPagination(pages) {
   const el = document.getElementById("pagination");
-  if (!p || p.pages <= 1) { el.innerHTML = ""; return; }
+  if (pages <= 1) { el.innerHTML = ""; return; }
   let html = "";
-  for (let i = 1; i <= p.pages; i++)
+  for (let i = 1; i <= pages; i++)
     html += `<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadStudents()">${i}</button>`;
   el.innerHTML = html;
 }
 
-/* ── VIEW ─────────────────────────────────────────── */
+/* ── VIEW ─────────────────────────────────────────────────────── */
 function viewStudent(s) {
-  const batches = (s.enrolled_batches||[]);
   const courses = (s.enrolled_courses||[]);
+  const batches = (s.enrolled_batches||[]);
   document.getElementById("viewBody").innerHTML = `
     <div class="dl">
       <div class="dl-item"><div class="lbl">Name</div><div style="font-weight:500">${escHtml(s.name)}</div></div>
@@ -244,14 +272,14 @@ function viewStudent(s) {
       <div class="dl-item" style="grid-column:1/-1"><div class="lbl">Address</div><div>${escHtml(s.address||"—")}</div></div>
     </div>
     <hr class="section-divider">
-    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px">Enrolled Courses</div>
-    <div style="font-size:13px;margin-bottom:10px">${courses.length ? courses.map(c=>`<span style="display:inline-block;padding:2px 8px;background:var(--g2);border-radius:4px;margin:2px;font-size:12px">${escHtml(c)}</span>`).join("") : '<span style="color:var(--g5)">None yet</span>'}</div>
-    <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px">Enrolled Batches</div>
-    <div style="font-size:13px">${batches.length ? batches.map(b=>`<span style="display:inline-block;padding:2px 8px;background:var(--g2);border-radius:4px;margin:2px;font-size:12px">${escHtml(b)}</span>`).join("") : '<span style="color:var(--g5)">None yet — use Enroll button to add.</span>'}</div>`;
+    <div class="section-lbl">Enrolled Courses</div>
+    <div style="margin-bottom:10px">${courses.length ? courses.map(c=>`<span class="tag">${escHtml(c)}</span>`).join("") : '<span style="color:var(--g5);font-size:13px">None yet</span>'}</div>
+    <div class="section-lbl">Enrolled Batches</div>
+    <div>${batches.length ? batches.map(b=>`<span class="tag">${escHtml(b)}</span>`).join("") : '<span style="color:var(--g5);font-size:13px">None yet — use Enroll button to add.</span>'}</div>`;
   document.getElementById("viewModal").classList.remove("hidden");
 }
 
-/* ── ADD STUDENT ──────────────────────────────────── */
+/* ── ADD STUDENT ─────────────────────────────────────────────── */
 function openAddModal() {
   document.getElementById("addErr").classList.add("hidden");
   document.getElementById("addModal").classList.remove("hidden");
@@ -273,39 +301,48 @@ async function addStudent() {
     address:        document.getElementById("fAddr").value.trim()
   };
   const missing = ["name","phone","email","password","dob","gender","guardian_name","guardian_phone","address"].filter(k => !data[k]);
-  if (missing.length) { err.textContent = "All fields are required: " + missing.join(", "); err.classList.remove("hidden"); return; }
-  showLoading(btn,"Adding…");
+  if (missing.length) {
+    err.textContent = "All fields are required: " + missing.join(", ");
+    err.classList.remove("hidden"); return;
+  }
+  showLoading(btn, "Adding…");
   const res = await api.post("/admin/students", data);
   stopLoading(btn);
   if (res?.ok) {
     closeModal("addModal");
     ["fName","fPhone","fEmail","fPass","fDob","fGuardName","fGuardPhone","fAddr"].forEach(id => document.getElementById(id).value = "");
     document.getElementById("fGender").value = "";
-    showToast("Student added successfully","success");
+    showToast("Student added successfully", "success");
     loadStudents();
-  } else { err.textContent = res?.data?.error||"Failed to add student."; err.classList.remove("hidden"); }
+  } else {
+    err.textContent = res?.data?.error || "Failed to add student.";
+    err.classList.remove("hidden");
+  }
 }
 
-/* ── EDIT STUDENT  (PUT /admin/students/<id>) ─────── */
+/* ── EDIT STUDENT — PUT /api/admin/students/<id> ─────────────── */
 function openEditModal(s) {
   document.getElementById("editErr").classList.add("hidden");
-  document.getElementById("eStudentId").value = s.student_id;
-  document.getElementById("eName").value      = s.name || "";
-  document.getElementById("ePhone").value     = s.phone || "";
-  document.getElementById("eGuardName").value = s.guardian_name || "";
-  document.getElementById("eGuardPhone").value= s.guardian_phone || "";
-  document.getElementById("eAddr").value      = s.address || "";
+  document.getElementById("eStudentId").value  = s.student_id;
+  document.getElementById("eName").value       = s.name || "";
+  document.getElementById("ePhone").value      = s.phone || "";
+  document.getElementById("eGuardName").value  = s.guardian_name || "";
+  document.getElementById("eGuardPhone").value = s.guardian_phone || "";
+  document.getElementById("eAddr").value       = s.address || "";
   document.getElementById("editModal").classList.remove("hidden");
 }
 
 async function saveEdit() {
-  const btn = document.getElementById("editBtn");
-  const err = document.getElementById("editErr");
+  const btn  = document.getElementById("editBtn");
+  const err  = document.getElementById("editErr");
   err.classList.add("hidden");
   const sid  = document.getElementById("eStudentId").value;
   const name = document.getElementById("eName").value.trim();
   const phone= document.getElementById("ePhone").value.trim();
-  if (!name || !phone) { err.textContent = "Name and phone are required."; err.classList.remove("hidden"); return; }
+  if (!name || !phone) {
+    err.textContent = "Name and phone are required.";
+    err.classList.remove("hidden"); return;
+  }
   const data = {
     name,
     phone,
@@ -313,14 +350,14 @@ async function saveEdit() {
     guardian_phone: document.getElementById("eGuardPhone").value.trim(),
     address:        document.getElementById("eAddr").value.trim()
   };
-  showLoading(btn,"Saving…");
+  showLoading(btn, "Saving…");
   const res = await api.put(`/admin/students/${sid}`, data);
   stopLoading(btn);
-  if (res?.ok) { closeModal("editModal"); showToast("Student updated","success"); loadStudents(); }
-  else { err.textContent = res?.data?.error||"Failed to update student."; err.classList.remove("hidden"); }
+  if (res?.ok) { closeModal("editModal"); showToast("Student updated", "success"); loadStudents(); }
+  else { err.textContent = res?.data?.error || "Failed to update student."; err.classList.remove("hidden"); }
 }
 
-/* ── ENROLL IN BATCH  (POST /admin/batches/<id>/enrol) ── */
+/* ── ENROLL IN BATCH ─────────────────────────────────────────── */
 let _allBatches = [];
 
 async function openEnrollModal(s) {
@@ -341,7 +378,7 @@ async function openEnrollModal(s) {
           <div style="font-weight:500">${escHtml(bid)}</div>
           <div class="batch-meta">Batch ID</div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="removeFromBatch('${bid}','${s.student_id}')">Remove</button>
+        <button class="btn btn-danger btn-sm" onclick="removeFromBatch('${escHtml(bid)}','${escHtml(s.student_id)}')">Remove</button>
       </div>`).join("");
   }
 
@@ -370,38 +407,44 @@ document.getElementById("batchSelect").addEventListener("change", function() {
 });
 
 async function enrollInBatch() {
-  const btn = document.getElementById("enrollBtn");
-  const err = document.getElementById("enrollErr");
-  err.classList.add("hidden");
+  const btn       = document.getElementById("enrollBtn");
+  const err       = document.getElementById("enrollErr");
   const batchId   = document.getElementById("batchSelect").value;
   const studentId = document.getElementById("enStudentId").value;
-  if (!batchId) { err.textContent = "Please select a batch."; err.classList.remove("hidden"); return; }
-  showLoading(btn,"Enrolling…");
+  err.classList.add("hidden");
+  if (!batchId) {
+    err.textContent = "Please select a batch.";
+    err.classList.remove("hidden"); return;
+  }
+  showLoading(btn, "Enrolling…");
   const res = await api.post(`/admin/batches/${batchId}/enrol`, { student_id: studentId });
   stopLoading(btn);
   if (res?.ok) {
-    showToast("Student enrolled in batch","success");
+    showToast("Student enrolled in batch", "success");
     closeModal("enrollModal");
     loadStudents();
-  } else { err.textContent = res?.data?.error||"Failed to enroll."; err.classList.remove("hidden"); }
+  } else {
+    err.textContent = res?.data?.error || "Failed to enroll.";
+    err.classList.remove("hidden");
+  }
 }
 
 async function removeFromBatch(batchId, studentId) {
   if (!confirm(`Remove student from batch ${batchId}?`)) return;
   const res = await api.delete(`/admin/batches/${batchId}/enrol`, { student_id: studentId });
   if (res?.ok) {
-    showToast("Removed from batch","success");
+    showToast("Removed from batch", "success");
     closeModal("enrollModal");
     loadStudents();
-  } else showToast(res?.data?.error||"Failed to remove","error");
+  } else showToast(res?.data?.error || "Failed to remove", "error");
 }
 
-/* ── DEACTIVATE ───────────────────────────────────── */
+/* ── DEACTIVATE ──────────────────────────────────────────────── */
 async function deactivate(sid) {
   if (!confirm("Deactivate this student?")) return;
   const res = await api.delete(`/admin/students/${sid}`);
-  if (res?.ok) { showToast("Student deactivated","success"); loadStudents(); }
-  else showToast(res?.data?.error||"Failed","error");
+  if (res?.ok) { showToast("Student deactivated", "success"); loadStudents(); }
+  else showToast(res?.data?.error || "Failed", "error");
 }
 
 function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
