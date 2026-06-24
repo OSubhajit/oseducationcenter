@@ -1229,6 +1229,7 @@ def deactivate_teacher(teacher_id):
     if result.matched_count == 0:
         return jsonify({"error": "Teacher not found"}), 404
     return jsonify({"message": "Teacher deactivated"}), 200
+<<<<<<< HEAD
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -1689,3 +1690,5 @@ def exam_dashboard_stats():
         },
     }), 200
 
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c

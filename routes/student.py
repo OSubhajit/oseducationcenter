@@ -259,6 +259,7 @@ def my_result_detail(result_id):
 @student_bp.get("/certificates")
 @student_required
 def my_certificates():
+<<<<<<< HEAD
     """
     List all certificates. Shows status so student knows what's pending.
     Only 'valid' ones have a downloadable PDF URL.
@@ -288,6 +289,31 @@ def my_certificates():
         enriched.append(cc)
 
     return jsonify({"total": len(enriched), "certificates": enriched}), 200
+=======
+    """List all valid certificates for the student."""
+    student    = _get_student()
+    student_id = student["student_id"]
+
+    certs = list(get_certificates().find(
+        {"student_id": student_id, "status": "valid"}
+    ).sort("issued_date", -1))
+
+    enriched = []
+    for c in certs:
+        course = get_courses().find_one(
+            {"course_id": c.get("course_id")},
+            {"name": 1, "category": 1, "_id": 0}
+        )
+        c_clean = _clean(c)
+        c_clean["course_name"]     = course["name"]     if course else "—"
+        c_clean["course_category"] = course["category"] if course else "—"
+        enriched.append(c_clean)
+
+    return jsonify({
+        "total"       : len(enriched),
+        "certificates": enriched,
+    }), 200
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 
 
 @student_bp.get("/certificates/<cert_id>")
@@ -408,6 +434,7 @@ def get_exam_for_student(exam_id):
             "already_taken"   : bool(already_taken),
         }
     }), 200
+<<<<<<< HEAD
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -589,3 +616,5 @@ def download_my_certificate_pdf(cert_id):
     return jsonify({"error": "Certificate PDF not available. Contact admin."}), 404
 
 
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c

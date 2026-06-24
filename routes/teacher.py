@@ -211,6 +211,7 @@ def change_password():
         {"teacher_id": teacher_id},
         {"$set": {"password_hash": new_hash}}
     )
+<<<<<<< HEAD
     return jsonify({"message": "Password changed successfully"}), 200
 
 
@@ -583,3 +584,6 @@ def view_approved_report(result_id):
 
     return jsonify(_clean(report)), 200
 
+=======
+    return jsonify({"message": "Password changed successfully"}), 200
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c

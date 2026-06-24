@@ -308,6 +308,225 @@ def face_ping(session_id):
     }), 200
 
 
+<<<<<<< HEAD
+=======
+# ═══════════════════════════════════════════════════════════════════
+# SUBMIT EXAM
+# ═══════════════════════════════════════════════════════════════════
+
+@exam_bp.post("/submit/<session_id>")
+@student_required
+def submit_exam(session_id):
+    """
+    The most critical route in the system.
+
+    Body: {
+      "answers": [
+        {"q_id": "Q001", "answer": "A"},
+        {"q_id": "Q002", "answer": "A variable stores data..."}
+      ]
+    }
+
+    Flow:
+    1. Validate session ownership + not already submitted
+    2. Lock session (status = completed)
+    3. Grade MCQs instantly
+    4. Grade written answers via Groq
+    5. Build result document → insert with locked=True
+    6. Generate PDF certificate (if passed)
+    7. Upload certificate PDF to Cloudinary
+    8. Return result to student
+    """
+    err = validate_osec_id(session_id, "session_id")
+    if err:
+        return err
+
+    data    = request.get_json(silent=True) or {}
+    answers = data.get("answers", [])
+
+    err = validate_answers_payload(answers)
+    if err:
+        return err
+
+    student = _get_student_from_jwt()
+    session = get_exam_sessions().find_one({
+        "session_id": session_id,
+        "status"    : "active",
+    })
+
+    if not session:
+        return jsonify({"error": "Session not found or already submitted"}), 404
+    if session["student_id"] != student["student_id"]:
+        return jsonify({"error": "Access denied"}), 403
+
+    exam = get_exams().find_one({"exam_id": session["exam_id"]})
+    if not exam:
+        return jsonify({"error": "Exam not found"}), 404
+
+    # ── Enforce time limit ───────────────────────────
+    if _is_session_expired(session, exam):
+        # Lock the session even on expired submit so student can't retry
+        get_exam_sessions().update_one(
+            {"session_id": session_id, "status": "active"},
+            {"$set": {"status": "expired", "end_time": datetime.utcnow()}}
+        )
+        return jsonify({"error": "Time limit exceeded. Your session has been closed."}), 410
+
+    # ── Step 1: Lock session immediately ────────────
+    # This prevents double-submission even if student clicks twice
+    lock_result = get_exam_sessions().update_one(
+        {"session_id": session_id, "status": "active"},
+        {"$set": {
+            "status"   : "completed",
+            "end_time" : datetime.utcnow(),
+            "answers"  : answers,
+        }}
+    )
+    if lock_result.modified_count == 0:
+        return jsonify({"error": "Session already submitted"}), 409
+
+    # ── Everything after the lock runs inside a try/except so that if
+    #    grading or cert-generation fails we can put the session back to
+    #    "active" and let the student retry, rather than leaving them in
+    #    a state where the session is locked but no result exists. ──────
+    try:
+        # ── Step 2: Summarise face log ───────────────────
+        updated_session = get_exam_sessions().find_one({"session_id": session_id})
+        from services.face_recognition import summarise_face_log
+        face_summary    = summarise_face_log(updated_session.get("face_log", []))
+
+        # ── Step 3: Grade everything ─────────────────────
+        from services.ai_grader import grade_full_exam
+        grading = grade_full_exam(exam, answers)
+
+        total_marks   = grading["total_marks"]
+        scored_marks  = grading["scored_marks"]
+        percentage    = round((scored_marks / total_marks) * 100, 2) if total_marks > 0 else 0
+        grade         = calculate_grade(percentage)
+        passed        = scored_marks >= exam["pass_marks"]
+
+        # ── Step 4: Build and insert result ─────────────
+        result_doc = build_result(
+            student_id    = student["student_id"],
+            exam_id       = exam["exam_id"],
+            session_id    = session_id,
+            total_marks   = total_marks,
+            scored_marks  = scored_marks,
+            mcq_score     = grading["mcq_score"],
+            written_score = grading["written_score"],
+            ai_evaluation = grading["ai_evaluation"],
+            video_url     = None,     # uploaded separately after exam
+            grade         = grade,
+            passed        = passed,
+        )
+        # attach face integrity to result
+        result_doc["face_integrity"] = face_summary
+        get_results().insert_one(result_doc)
+
+        # ── Step 5: Generate certificate (if passed) ─────
+        cert_doc = None
+        cert_url = None
+
+        if passed:
+            course = get_courses().find_one({"course_id": exam["course_id"]})
+            from services.cert_generator import generate_certificate_pdf, generate_cert_hash
+            from services.video_handler import upload_certificate_pdf
+
+            cert_hash = generate_cert_hash(
+                "PENDING", student["student_id"], result_doc["result_id"]
+            )
+
+            cert_doc = build_certificate(
+                student_id = student["student_id"],
+                course_id  = exam["course_id"],
+                result_id  = result_doc["result_id"],
+                grade      = grade,
+                percentage = percentage,
+                cert_hash  = cert_hash,
+            )
+
+            # generate PDF bytes
+            pdf_bytes = generate_certificate_pdf(
+                cert_id      = cert_doc["cert_id"],
+                student_name = student["name"],
+                student_id   = student["student_id"],
+                course_name  = course["name"] if course else exam["course_id"],
+                grade        = grade,
+                percentage   = percentage,
+                issued_date  = datetime.utcnow(),
+                result_id    = result_doc["result_id"],
+            )
+
+            # upload PDF to Cloudinary
+            upload_result = upload_certificate_pdf(pdf_bytes, cert_doc["cert_id"])
+            if upload_result["success"]:
+                cert_doc["pdf_url"] = upload_result["url"]
+                cert_url            = upload_result["url"]
+
+            # update cert hash with real cert_id
+            real_hash = generate_cert_hash(
+                cert_doc["cert_id"],
+                student["student_id"],
+                result_doc["result_id"]
+            )
+            cert_doc["hash"] = real_hash
+
+            get_certificates().insert_one(cert_doc)
+
+        # ── Step 6: Return result to student ─────────────
+        response = {
+            "message"       : "Exam submitted successfully",
+            "result_id"     : result_doc["result_id"],
+            "session_id"    : session_id,
+            "total_marks"   : total_marks,
+            "scored_marks"  : scored_marks,
+            "percentage"    : percentage,
+            "grade"         : grade,
+            "passed"        : passed,
+            "mcq_score"     : grading["mcq_score"],
+            "written_score" : grading["written_score"],
+            "face_integrity": face_summary,
+            "ai_feedback"   : [
+                {
+                    "q_id"    : w["q_id"],
+                    "feedback": w["feedback"],
+                    "score"   : w["score"],
+                    "max"     : w["max_marks"],
+                }
+                for w in grading["ai_evaluation"].get("written_answers", [])
+            ],
+        }
+
+        if passed and cert_doc:
+            response["certificate"] = {
+                "cert_id"   : cert_doc["cert_id"],
+                "pdf_url"   : cert_url,
+                "verify_url": f"/api/verify/{cert_doc['cert_id']}/page",
+            }
+        else:
+            response["certificate"] = None
+            response["message_fail"] = (
+                f"Minimum passing marks: {exam['pass_marks']}. "
+                "Please re-enrol to attempt again."
+            )
+
+        return jsonify(response), 200
+
+    except Exception as exc:
+        # Grading or cert generation failed — unlock the session so the
+        # student can re-submit once the issue is resolved.
+        get_exam_sessions().update_one(
+            {"session_id": session_id},
+            {"$set": {"status": "active", "end_time": None, "answers": []}}
+        )
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "error": "An internal error occurred during grading. "
+                     "Your session has been reopened — please try submitting again."
+        }), 500
+
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 
 # ═══════════════════════════════════════════════════════════════════
 # UPLOAD EXAM VIDEO (admin calls this after exam)
@@ -423,6 +642,7 @@ def get_session(session_id):
     if not session:
         return jsonify({"error": "Session not found"}), 404
     return jsonify(_clean(session)), 200
+<<<<<<< HEAD
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -957,3 +1177,5 @@ def submit_exam_v2(session_id):
             "error": "Internal error during grading. Session reopened — please resubmit."
         }), 500
 
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c

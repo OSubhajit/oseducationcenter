@@ -28,8 +28,11 @@ def get_assignment_submissions(): return mongo.db.assignment_submissions
 def get_resources():      return mongo.db.resources
 def get_teachers():       return mongo.db.teachers
 def get_admin():          return mongo.db.admin
+<<<<<<< HEAD
 def get_exam_papers():    return mongo.db.exam_papers
 def get_exam_reports():   return mongo.db.exam_reports
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 
 
 def init_mongo(app):
@@ -142,6 +145,7 @@ def create_indexes():
     get_fees().create_index("student_id")
     get_fees().create_index("status")
 
+<<<<<<< HEAD
     # ── Exam extension indexes ──────────────────────────────────────
     get_exam_papers().create_index("paper_id", unique=True)
     get_exam_papers().create_index("teacher_id")
@@ -152,4 +156,6 @@ def create_indexes():
     get_exam_reports().create_index("student_id")
     get_exam_reports().create_index("status")
 
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
     print("[DB] Indexes created.")

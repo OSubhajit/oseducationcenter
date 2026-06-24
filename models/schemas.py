@@ -130,6 +130,7 @@ def build_exam(course_id, title, duration_minutes, total_marks, pass_marks, ques
     }
 
 
+<<<<<<< HEAD
 def build_exam_session(student_id: str, exam_id: str) -> dict:
     """
     Extended exam session (v2) — adds proctor_log, typing_data, and video_chunks
@@ -169,6 +170,19 @@ def build_proctor_event(event_type: str, detail: str, confidence: float = 0.0) -
         "detail"     : detail,
         "confidence" : round(confidence, 3),
         "timestamp"  : datetime.utcnow().isoformat(),
+=======
+def build_exam_session(student_id, exam_id):
+    return {
+        "session_id"    : new_session_id(),
+        "student_id"    : student_id,
+        "exam_id"       : exam_id,
+        "start_time"    : datetime.utcnow(),
+        "end_time"      : None,
+        "video_url"     : None,
+        "face_log"      : [],
+        "answers"       : [],
+        "status"        : "active",
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
     }
 
 
@@ -213,11 +227,14 @@ def build_certificate(student_id, course_id, result_id,
     }
 
 
+<<<<<<< HEAD
 
 def new_report_id():  return f"RPT-{shortuuid.ShortUUID().random(length=8).upper()}"
 def new_paper_id():   return f"PAPER-{shortuuid.ShortUUID().random(length=8).upper()}"
 
 
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def calculate_grade(pct: float) -> str:
     if pct >= 90: return "A+"
     if pct >= 80: return "A"

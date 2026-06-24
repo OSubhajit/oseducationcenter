@@ -24,13 +24,19 @@ HTTP status codes:
 """
 import os
 from flask import Blueprint, jsonify, current_app
+<<<<<<< HEAD
 from extensions import limiter
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 
 health_bp = Blueprint("health", __name__)
 
 
 @health_bp.get("/health")
+<<<<<<< HEAD
 @limiter.exempt   # health checks must never be blocked by rate limits
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def liveness():
     """
     Liveness probe — returns 200 as long as the Flask process is alive.
@@ -41,14 +47,20 @@ def liveness():
 
 
 @health_bp.get("/health/ready")
+<<<<<<< HEAD
 @limiter.exempt   # health checks must never be blocked by rate limits
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def readiness():
     """
     Readiness probe — checks:
     1. MongoDB connectivity
     2. Critical config presence (no hardcoded dev secrets in prod)
+<<<<<<< HEAD
     3. Talisman security-header middleware is active
     4. Flask-Limiter storage backend is reachable
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
     """
     from db import ping_db
 
@@ -93,6 +105,7 @@ def readiness():
     else:
         checks["storage"] = "ok"
 
+<<<<<<< HEAD
     # ── Fix 5a: Talisman security-header middleware ─────────────────
     # Talisman wraps app.wsgi_app; its class name is 'Talisman'.
     # If the middleware is missing, CSP / HSTS / X-Frame-Options headers
@@ -152,6 +165,8 @@ def readiness():
         checks["rate_limiter"] = f"error checking rate-limiter storage: {e}"
         warning = True
 
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
     # ── Response ─────────────────────────────────────────────────────
     if not ok:
         status_str = "down"

@@ -38,6 +38,7 @@ def _check_password(plain: str, hashed) -> bool:
 
 
 def _login_rate_limit():
+<<<<<<< HEAD
     """
     REMOVED — callable limits with current_app.config are fragile: if the
     callable raises for any reason (wrong context, storage error), Flask-Limiter
@@ -51,6 +52,18 @@ def _login_rate_limit():
 import os as _os
 _LOGIN_RATE_LIMIT  = _os.getenv("LOGIN_RATE_LIMIT",         "5 per minute;20 per hour")
 _RESET_RATE_LIMIT  = _os.getenv("PASSWORD_RESET_RATE_LIMIT", "3 per minute;10 per hour")
+=======
+    """Returns the configured login rate-limit string(s) for @limiter.limit().
+
+    Evaluated per-request (Flask-Limiter calls this lazily), so it picks up
+    current_app.config — which differs between dev/test/production.
+    """
+    return current_app.config.get("LOGIN_RATE_LIMIT", "5 per minute;20 per hour")
+
+
+def _reset_rate_limit():
+    return current_app.config.get("PASSWORD_RESET_RATE_LIMIT", "3 per minute;10 per hour")
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 
 
 def _get_reset_serializer():
@@ -60,7 +73,11 @@ def _get_reset_serializer():
 # ── Login endpoints ─────────────────────────────────────────────────────────
 
 @auth_bp.post("/admin/login")
+<<<<<<< HEAD
 @limiter.limit(_LOGIN_RATE_LIMIT)
+=======
+@limiter.limit(_login_rate_limit)
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def admin_login():
     data = request.get_json(silent=True) or {}
     username = safe_str(data, "username")
@@ -96,7 +113,11 @@ def admin_login():
 
 
 @auth_bp.post("/student/login")
+<<<<<<< HEAD
 @limiter.limit(_LOGIN_RATE_LIMIT)
+=======
+@limiter.limit(_login_rate_limit)
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def student_login():
     data       = request.get_json(silent=True) or {}
     identifier = safe_str(data, "identifier")
@@ -134,7 +155,11 @@ def student_login():
 
 
 @auth_bp.post("/teacher/login")
+<<<<<<< HEAD
 @limiter.limit(_LOGIN_RATE_LIMIT)
+=======
+@limiter.limit(_login_rate_limit)
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def teacher_login():
     data       = request.get_json(silent=True) or {}
     identifier = safe_str(data, "identifier")
@@ -196,7 +221,11 @@ def me():
 # ── Password reset — self-service (email token flow) ────────────────────────
 
 @auth_bp.post("/forgot-password")
+<<<<<<< HEAD
 @limiter.limit(_RESET_RATE_LIMIT)
+=======
+@limiter.limit(_reset_rate_limit)
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 def forgot_password():
     """
     Issue a time-limited reset link.

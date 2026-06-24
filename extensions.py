@@ -35,6 +35,7 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[],            # no global default — limits are applied per-route
     headers_enabled=True,         # expose X-RateLimit-* response headers
+<<<<<<< HEAD
     # swallow_errors=False means any failure in limit evaluation (bad callable,
     # storage unavailable, etc.) raises immediately rather than silently letting
     # the request through. This was the root cause of the "registers but doesn't
@@ -42,4 +43,6 @@ limiter = Limiter(
     # enforced. Set to True only if you intentionally want fail-open behaviour
     # (e.g. Redis outage should not take the app down).
     swallow_errors=False,
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
 )

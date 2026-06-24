@@ -30,4 +30,7 @@ itsdangerous==2.2.0           # Timed tokens for password-reset links (already b
 # each worker keeps its own in-memory rate-limit counters (see config.py
 # check_rate_limit_storage() for details).
 # redis==5.0.8
+<<<<<<< HEAD
 pdfplumber==0.10.3
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c

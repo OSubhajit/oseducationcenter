@@ -105,6 +105,7 @@ def exam_take():
 def exam_page(exam_id):
     """Student navigates here from dashboard: /exam/OSEC-EXM-XXXXXX"""
     return render_template("exam/exam.html")
+<<<<<<< HEAD
 
 
 # ── Exam extension pages ──────────────────────────────────────────
@@ -139,3 +140,5 @@ def exam_room(session_id):
         exam_id          = session["exam_id"],
         duration_minutes = exam.get("duration_minutes", 180) if exam else 180,
     )
+=======
+>>>>>>> 091fbe1a0bfbb2d98bc394e9b2093ff6a720c55c
