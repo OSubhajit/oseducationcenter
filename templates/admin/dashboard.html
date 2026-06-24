@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div>
+          <div style="font-family:var(--fd);font-weight:600;font-size:16px">Dashboard</div>
+          <div style="font-size:11.5px;color:var(--g5)" id="dateStr"></div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--g6)">OS Education Center</div>
+    </header>
+
+    <main class="page-content">
+      <!-- Stats -->
+      <div class="stat-grid" id="statsGrid">
+        <div class="stat-card"><div class="stat-label">Students</div><div class="stat-value" id="sStudents">—</div><div class="stat-sub">Active enrolled</div></div>
+        <div class="stat-card"><div class="stat-label">Courses</div><div class="stat-value" id="sCourses">—</div><div class="stat-sub">Active courses</div></div>
+        <div class="stat-card"><div class="stat-label">Batches</div><div class="stat-value" id="sBatches">—</div><div class="stat-sub">Running batches</div></div>
+        <div class="stat-card"><div class="stat-label">Exams</div><div class="stat-value" id="sExams">—</div><div class="stat-sub">Published</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <!-- Recent students -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Recent Students</span>
+            <a href="/admin/students" class="btn btn-ghost btn-sm">View all</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>ID</th><th>Status</th></tr></thead>
+              <tbody id="recentStudents"><tr><td colspan="3" style="text-align:center;color:var(--g5);padding:20px">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Fee overview -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Fee Overview</span>
+            <a href="/admin/fees" class="btn btn-ghost btn-sm">View all</a>
+          </div>
+          <div id="feeStats" style="padding:8px 0">
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--g2)">
+              <span style="font-size:13px;color:var(--g6)">Fully paid</span>
+              <span class="badge badge-success" id="feePaid">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--g2)">
+              <span style="font-size:13px;color:var(--g6)">Partial</span>
+              <span class="badge badge-warning" id="feePartial">—</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0">
+              <span style="font-size:13px;color:var(--g6)">Unpaid</span>
+              <span class="badge badge-danger" id="feeUnpaid">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent results -->
+        <div class="card" style="grid-column:1/-1">
+          <div class="card-header">
+            <span class="card-title">Recent Exam Results</span>
+            <a href="/admin/results" class="btn btn-ghost btn-sm">View all</a>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Student</th><th>Exam</th><th>Score</th><th>Grade</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody id="recentResults"><tr><td colspan="6" style="text-align:center;color:var(--g5);padding:20px">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("dashboard","admin");
+document.getElementById("dateStr").textContent = new Date().toLocaleDateString("en-IN",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+
+async function loadDashboard() {
+  const [stuRes, courseRes, batchRes, examRes, feeRes, resultRes] = await Promise.all([
+    api.get("/admin/students?per_page=5"),
+    api.get("/admin/courses?per_page=1"),
+    api.get("/admin/batches?per_page=1"),
+    api.get("/admin/exams?per_page=1"),
+    api.get("/admin/fees?per_page=100"),
+    api.get("/admin/results?per_page=5"),
+  ]);
+
+  if (stuRes?.ok) {
+    document.getElementById("sStudents").textContent = stuRes.data.pagination?.total ?? "—";
+    const rows = (stuRes.data.students || []).map(s => `<tr>
+      <td>${escHtml(s.name)}</td>
+      <td><span class="mono">${escHtml(s.student_id)}</span></td>
+      <td>${statusBadge(s.active ? "active" : "inactive")}</td>
+    </tr>`).join("");
+    document.getElementById("recentStudents").innerHTML = rows || `<tr><td colspan="3" class="empty" style="text-align:center">No students yet</td></tr>`;
+  }
+  if (courseRes?.ok) document.getElementById("sCourses").textContent = courseRes.data.pagination?.total ?? "—";
+  if (batchRes?.ok)  document.getElementById("sBatches").textContent = batchRes.data.pagination?.total ?? "—";
+  if (examRes?.ok)   document.getElementById("sExams").textContent   = examRes.data.pagination?.total ?? "—";
+
+  if (feeRes?.ok) {
+    const fees = feeRes.data.fees || [];
+    document.getElementById("feePaid").textContent    = fees.filter(f=>f.status==="paid").length;
+    document.getElementById("feePartial").textContent = fees.filter(f=>f.status==="partial").length;
+    document.getElementById("feeUnpaid").textContent  = fees.filter(f=>f.status==="unpaid").length;
+  }
+
+  if (resultRes?.ok) {
+    const rows = (resultRes.data.results || []).map(r => `<tr>
+      <td>${escHtml(r.student_id)}</td>
+      <td>${escHtml(r.exam_id)}</td>
+      <td>${r.scored_marks ?? "—"} / ${r.total_marks ?? "—"}</td>
+      <td><span class="grade ${gradeClass(r.grade)}">${escHtml(r.grade||"—")}</span></td>
+      <td>${statusBadge(r.passed ? "passed" : "failed")}</td>
+      <td>${formatDate(r.created_at)}</td>
+    </tr>`).join("");
+    document.getElementById("recentResults").innerHTML = rows || `<tr><td colspan="6" style="text-align:center;color:var(--g5);padding:20px">No results yet</td></tr>`;
+  }
+}
+loadDashboard();
+</script>
+</body></html>

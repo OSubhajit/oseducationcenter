@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Students — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Students</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openAddModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Add Student
+      </button>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <div class="search-bar">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="searchInput" placeholder="Search by name, ID, phone…" oninput="debSearch()">
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--g6);cursor:pointer">
+              <input type="checkbox" id="showInactive" onchange="loadStudents()"> Show inactive
+            </label>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Student ID</th><th>Phone</th><th>Courses</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     ADD STUDENT MODAL — all 9 required backend fields
+═══════════════════════════════════════════════════ -->
+<div class="modal-backdrop hidden" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add New Student</h3>
+      <button class="modal-close" onclick="closeModal('addModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="addErr" class="alert alert-error hidden"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input id="fName" type="text" placeholder="Rahul Das"></div>
+        <div class="form-group"><label>Phone *</label><input id="fPhone" type="text" placeholder="9XXXXXXXXX"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Email *</label><input id="fEmail" type="email" placeholder="rahul@email.com"></div>
+        <div class="form-group"><label>Password *</label><input id="fPass" type="password" placeholder="Min 6 chars"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date of Birth *</label><input id="fDob" type="date"></div>
+        <div class="form-group"><label>Gender *</label>
+          <select id="fGender" class="sel">
+            <option value="">Select gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Guardian Name *</label><input id="fGuardName" type="text" placeholder="Parent / Guardian full name"></div>
+        <div class="form-group"><label>Guardian Phone *</label><input id="fGuardPhone" type="text" placeholder="9XXXXXXXXX"></div>
+      </div>
+      <div class="form-group"><label>Address *</label><input id="fAddr" type="text" placeholder="Village, District, State"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" id="addBtn" onclick="addStudent()">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     EDIT STUDENT MODAL
+     PUT /api/admin/students/<id>
+     allowed: name, phone, address, guardian_name,
+              guardian_phone, active
+═══════════════════════════════════════════════════ -->
+<div class="modal-backdrop hidden" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Student</h3>
+      <button class="modal-close" onclick="closeModal('editModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="editErr" class="alert alert-error hidden"></div>
+      <input type="hidden" id="eStudentId">
+      <div class="form-row">
+        <div class="form-group"><label>Full Name *</label><input id="eName" type="text"></div>
+        <div class="form-group"><label>Phone *</label><input id="ePhone" type="text"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Guardian Name</label><input id="eGuardName" type="text"></div>
+        <div class="form-group"><label>Guardian Phone</label><input id="eGuardPhone" type="text"></div>
+      </div>
+      <div class="form-group"><label>Address</label><input id="eAddr" type="text"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" id="editBtn" onclick="saveEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     VIEW STUDENT MODAL
+═══════════════════════════════════════════════════ -->
+<div class="modal-backdrop hidden" id="viewModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3>Student Details</h3>
+      <button class="modal-close" onclick="closeModal('viewModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body" id="viewBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('viewModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     ENROLL IN BATCH MODAL
+     POST   /api/admin/batches/<batch_id>/enrol
+     DELETE /api/admin/batches/<batch_id>/enrol
+═══════════════════════════════════════════════════ -->
+<div class="modal-backdrop hidden" id="enrollModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h3>Manage Course Enrollment</h3>
+      <button class="modal-close" onclick="closeModal('enrollModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="enrollErr" class="alert alert-error hidden"></div>
+      <input type="hidden" id="enStudentId">
+
+      <!-- Current enrollments -->
+      <div style="margin-bottom:1.25rem">
+        <div class="section-lbl">Currently Enrolled Batches</div>
+        <div id="currentBatches" style="font-size:13px;color:var(--g6)">Loading…</div>
+      </div>
+
+      <hr class="section-divider">
+
+      <!-- Enroll in new batch -->
+      <div class="section-lbl">Enroll in a New Batch</div>
+      <div class="form-group">
+        <label>Select Batch</label>
+        <select id="batchSelect" class="sel">
+          <option value="">Loading batches…</option>
+        </select>
+      </div>
+      <div id="batchInfo" style="font-size:12px;color:var(--g5);margin-top:4px;min-height:16px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('enrollModal')">Close</button>
+      <button class="btn btn-primary" id="enrollBtn" onclick="enrollInBatch()">Enroll in Batch</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* select styling */
+.sel{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius);font-size:14px;background:var(--bg);color:var(--text);height:38px}
+/* enroll modal rows */
+.enroll-row{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:6px;font-size:13px}
+.enroll-row .batch-meta{color:var(--g5);font-size:11px;margin-top:1px}
+/* view student grid */
+.dl{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px}
+.dl-item .lbl{font-size:11px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+/* course / batch tag pills */
+.tag{display:inline-block;padding:2px 8px;background:var(--g2);border-radius:4px;margin:2px;font-size:12px}
+/* section headings inside modals */
+.section-lbl{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px}
+/* divider between view sections */
+.section-divider{border:none;border-top:1px solid var(--border);margin:14px 0}
+</style>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("students", "admin");
+
+// Named constant — change in one place if per_page ever changes
+const PER_PAGE = 20;
+
+let page = 1, searchVal = "";
+let debTimer = null;
+function debSearch() {
+  clearTimeout(debTimer);
+  debTimer = setTimeout(() => { searchVal = document.getElementById("searchInput").value.trim(); page = 1; loadStudents(); }, 350);
+}
+
+/* ── LIST ─────────────────────────────────────────────────────── */
+async function loadStudents() {
+  const inc = document.getElementById("showInactive").checked ? "&include_inactive=true" : "";
+  const res = await api.get(`/admin/students?page=${page}&per_page=${PER_PAGE}&search=${encodeURIComponent(searchVal)}${inc}`);
+  if (!res?.ok) return;
+
+  // list_students returns { total, page, per_page, students } — no nested
+  // pagination object. Compute page count here from top-level fields.
+  const { students = [], total = 0, per_page = PER_PAGE } = res.data;
+  const pages = Math.ceil(total / per_page);
+
+  const tbody = document.getElementById("tbody");
+  if (!students.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg><p>No students found</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML = "";
+    return;
+  }
+
+  tbody.innerHTML = students.map(s => `<tr>
+    <td><span style="font-weight:500">${escHtml(s.name)}</span></td>
+    <td><span class="mono">${escHtml(s.student_id)}</span></td>
+    <td>${escHtml(s.phone||"—")}</td>
+    <td>${(s.enrolled_courses||[]).length} course(s)</td>
+    <td>${statusBadge(s.active?"active":"inactive")}</td>
+    <td style="text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick='viewStudent(${JSON.stringify(s)})'>View</button>
+      <button class="btn btn-ghost btn-sm" onclick='openEditModal(${JSON.stringify(s)})'>Edit</button>
+      <button class="btn btn-ghost btn-sm" onclick='openEnrollModal(${JSON.stringify(s)})'>Enroll</button>
+      ${s.active ? `<button class="btn btn-danger btn-sm" onclick="deactivate('${s.student_id}')">Deactivate</button>` : ""}
+    </td>
+  </tr>`).join("");
+
+  renderPagination(pages);
+}
+
+// Accepts a plain number — computed from total/per_page in loadStudents()
+function renderPagination(pages) {
+  const el = document.getElementById("pagination");
+  if (pages <= 1) { el.innerHTML = ""; return; }
+  let html = "";
+  for (let i = 1; i <= pages; i++)
+    html += `<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadStudents()">${i}</button>`;
+  el.innerHTML = html;
+}
+
+/* ── VIEW ─────────────────────────────────────────────────────── */
+function viewStudent(s) {
+  const courses = (s.enrolled_courses||[]);
+  const batches = (s.enrolled_batches||[]);
+  document.getElementById("viewBody").innerHTML = `
+    <div class="dl">
+      <div class="dl-item"><div class="lbl">Name</div><div style="font-weight:500">${escHtml(s.name)}</div></div>
+      <div class="dl-item"><div class="lbl">Student ID</div><div class="mono">${escHtml(s.student_id)}</div></div>
+      <div class="dl-item"><div class="lbl">Phone</div><div>${escHtml(s.phone||"—")}</div></div>
+      <div class="dl-item"><div class="lbl">Email</div><div>${escHtml(s.email||"—")}</div></div>
+      <div class="dl-item"><div class="lbl">Date of Birth</div><div>${escHtml(s.dob||"—")}</div></div>
+      <div class="dl-item"><div class="lbl">Gender</div><div>${escHtml(s.gender||"—")}</div></div>
+      <div class="dl-item"><div class="lbl">Guardian Name</div><div>${escHtml(s.guardian_name||"—")}</div></div>
+      <div class="dl-item"><div class="lbl">Guardian Phone</div><div>${escHtml(s.guardian_phone||"—")}</div></div>
+      <div class="dl-item"><div class="lbl">Status</div><div>${statusBadge(s.active?"active":"inactive")}</div></div>
+      <div class="dl-item"><div class="lbl">Joined</div><div>${formatDate(s.created_at)}</div></div>
+      <div class="dl-item" style="grid-column:1/-1"><div class="lbl">Address</div><div>${escHtml(s.address||"—")}</div></div>
+    </div>
+    <hr class="section-divider">
+    <div class="section-lbl">Enrolled Courses</div>
+    <div style="margin-bottom:10px">${courses.length ? courses.map(c=>`<span class="tag">${escHtml(c)}</span>`).join("") : '<span style="color:var(--g5);font-size:13px">None yet</span>'}</div>
+    <div class="section-lbl">Enrolled Batches</div>
+    <div>${batches.length ? batches.map(b=>`<span class="tag">${escHtml(b)}</span>`).join("") : '<span style="color:var(--g5);font-size:13px">None yet — use Enroll button to add.</span>'}</div>`;
+  document.getElementById("viewModal").classList.remove("hidden");
+}
+
+/* ── ADD STUDENT ─────────────────────────────────────────────── */
+function openAddModal() {
+  document.getElementById("addErr").classList.add("hidden");
+  document.getElementById("addModal").classList.remove("hidden");
+}
+
+async function addStudent() {
+  const btn = document.getElementById("addBtn");
+  const err = document.getElementById("addErr");
+  err.classList.add("hidden");
+  const data = {
+    name:           document.getElementById("fName").value.trim(),
+    phone:          document.getElementById("fPhone").value.trim(),
+    email:          document.getElementById("fEmail").value.trim(),
+    password:       document.getElementById("fPass").value,
+    dob:            document.getElementById("fDob").value,
+    gender:         document.getElementById("fGender").value,
+    guardian_name:  document.getElementById("fGuardName").value.trim(),
+    guardian_phone: document.getElementById("fGuardPhone").value.trim(),
+    address:        document.getElementById("fAddr").value.trim()
+  };
+  const missing = ["name","phone","email","password","dob","gender","guardian_name","guardian_phone","address"].filter(k => !data[k]);
+  if (missing.length) {
+    err.textContent = "All fields are required: " + missing.join(", ");
+    err.classList.remove("hidden"); return;
+  }
+  showLoading(btn, "Adding…");
+  const res = await api.post("/admin/students", data);
+  stopLoading(btn);
+  if (res?.ok) {
+    closeModal("addModal");
+    ["fName","fPhone","fEmail","fPass","fDob","fGuardName","fGuardPhone","fAddr"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("fGender").value = "";
+    showToast("Student added successfully", "success");
+    loadStudents();
+  } else {
+    err.textContent = res?.data?.error || "Failed to add student.";
+    err.classList.remove("hidden");
+  }
+}
+
+/* ── EDIT STUDENT — PUT /api/admin/students/<id> ─────────────── */
+function openEditModal(s) {
+  document.getElementById("editErr").classList.add("hidden");
+  document.getElementById("eStudentId").value  = s.student_id;
+  document.getElementById("eName").value       = s.name || "";
+  document.getElementById("ePhone").value      = s.phone || "";
+  document.getElementById("eGuardName").value  = s.guardian_name || "";
+  document.getElementById("eGuardPhone").value = s.guardian_phone || "";
+  document.getElementById("eAddr").value       = s.address || "";
+  document.getElementById("editModal").classList.remove("hidden");
+}
+
+async function saveEdit() {
+  const btn  = document.getElementById("editBtn");
+  const err  = document.getElementById("editErr");
+  err.classList.add("hidden");
+  const sid  = document.getElementById("eStudentId").value;
+  const name = document.getElementById("eName").value.trim();
+  const phone= document.getElementById("ePhone").value.trim();
+  if (!name || !phone) {
+    err.textContent = "Name and phone are required.";
+    err.classList.remove("hidden"); return;
+  }
+  const data = {
+    name,
+    phone,
+    guardian_name:  document.getElementById("eGuardName").value.trim(),
+    guardian_phone: document.getElementById("eGuardPhone").value.trim(),
+    address:        document.getElementById("eAddr").value.trim()
+  };
+  showLoading(btn, "Saving…");
+  const res = await api.put(`/admin/students/${sid}`, data);
+  stopLoading(btn);
+  if (res?.ok) { closeModal("editModal"); showToast("Student updated", "success"); loadStudents(); }
+  else { err.textContent = res?.data?.error || "Failed to update student."; err.classList.remove("hidden"); }
+}
+
+/* ── ENROLL IN BATCH ─────────────────────────────────────────── */
+let _allBatches = [];
+
+async function openEnrollModal(s) {
+  document.getElementById("enrollErr").classList.add("hidden");
+  document.getElementById("enStudentId").value = s.student_id;
+  document.getElementById("batchInfo").textContent = "";
+  document.getElementById("enrollModal").classList.remove("hidden");
+
+  // Load current enrollments display
+  const enrolled = s.enrolled_batches || [];
+  const cb = document.getElementById("currentBatches");
+  if (!enrolled.length) {
+    cb.innerHTML = '<span style="color:var(--g5)">Not enrolled in any batch yet.</span>';
+  } else {
+    cb.innerHTML = enrolled.map(bid => `
+      <div class="enroll-row">
+        <div>
+          <div style="font-weight:500">${escHtml(bid)}</div>
+          <div class="batch-meta">Batch ID</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="removeFromBatch('${escHtml(bid)}','${escHtml(s.student_id)}')">Remove</button>
+      </div>`).join("");
+  }
+
+  // Load all batches for the select dropdown
+  const sel = document.getElementById("batchSelect");
+  sel.innerHTML = '<option value="">Loading…</option>';
+  const res = await api.get("/admin/batches");
+  if (!res?.ok) { sel.innerHTML = '<option value="">Failed to load batches</option>'; return; }
+  _allBatches = res.data.batches || [];
+  const available = _allBatches.filter(b => !enrolled.includes(b.batch_id));
+  if (!available.length) {
+    sel.innerHTML = '<option value="">No available batches to enroll in</option>';
+    document.getElementById("enrollBtn").disabled = true;
+  } else {
+    document.getElementById("enrollBtn").disabled = false;
+    sel.innerHTML = '<option value="">— select a batch —</option>' +
+      available.map(b => `<option value="${escHtml(b.batch_id)}">${escHtml(b.batch_id)} · ${escHtml(b.course_id)} · ${escHtml(b.schedule||"")}</option>`).join("");
+  }
+}
+
+document.getElementById("batchSelect").addEventListener("change", function() {
+  const b = _allBatches.find(x => x.batch_id === this.value);
+  const info = document.getElementById("batchInfo");
+  if (!b) { info.textContent = ""; return; }
+  info.textContent = `Course: ${b.course_id} · ${b.start_date||"?"} → ${b.end_date||"?"} · Max ${b.max_students||"?"} students · ${(b.students||[]).length} enrolled`;
+});
+
+async function enrollInBatch() {
+  const btn       = document.getElementById("enrollBtn");
+  const err       = document.getElementById("enrollErr");
+  const batchId   = document.getElementById("batchSelect").value;
+  const studentId = document.getElementById("enStudentId").value;
+  err.classList.add("hidden");
+  if (!batchId) {
+    err.textContent = "Please select a batch.";
+    err.classList.remove("hidden"); return;
+  }
+  showLoading(btn, "Enrolling…");
+  const res = await api.post(`/admin/batches/${batchId}/enrol`, { student_id: studentId });
+  stopLoading(btn);
+  if (res?.ok) {
+    showToast("Student enrolled in batch", "success");
+    closeModal("enrollModal");
+    loadStudents();
+  } else {
+    err.textContent = res?.data?.error || "Failed to enroll.";
+    err.classList.remove("hidden");
+  }
+}
+
+async function removeFromBatch(batchId, studentId) {
+  if (!confirm(`Remove student from batch ${batchId}?`)) return;
+  const res = await api.delete(`/admin/batches/${batchId}/enrol`, { student_id: studentId });
+  if (res?.ok) {
+    showToast("Removed from batch", "success");
+    closeModal("enrollModal");
+    loadStudents();
+  } else showToast(res?.data?.error || "Failed to remove", "error");
+}
+
+/* ── DEACTIVATE ──────────────────────────────────────────────── */
+async function deactivate(sid) {
+  if (!confirm("Deactivate this student?")) return;
+  const res = await api.delete(`/admin/students/${sid}`);
+  if (res?.ok) { showToast("Student deactivated", "success"); loadStudents(); }
+  else showToast(res?.data?.error || "Failed", "error");
+}
+
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+loadStudents();
+</script>
+</body>
+</html>

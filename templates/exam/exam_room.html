@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Exam Room — OSEDUCATION CENTER</title>
+<style>
+/* ── Reset & Variables ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --k:#0A0A0A;--w:#FFFFFF;--g:#F4F4F4;--lg:#E5E5E5;
+  --a:#0047FF;--gn:#00A86B;--rd:#CC0000;--or:#FF6B00;
+  --m:#888;--nh:56px;
+  --font:"Inter",system-ui,sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--k);color:var(--w);font-family:var(--font)}
+
+/* ── Top Nav Bar ── */
+#nav{
+  position:fixed;top:0;left:0;right:0;height:var(--nh);
+  background:var(--k);border-bottom:1px solid #222;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px;z-index:100;
+}
+.nav-logo{font-size:.85rem;font-weight:700;letter-spacing:.05em;color:var(--w)}
+.nav-logo span{color:var(--a)}
+#timer{
+  font-size:1.5rem;font-weight:700;letter-spacing:.06em;
+  font-variant-numeric:tabular-nums;color:var(--w);
+  transition:color .3s;
+}
+#timer.warn{color:var(--or)}
+#timer.danger{color:var(--rd);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.4}}
+.nav-right{display:flex;align-items:center;gap:12px}
+.tag{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+     padding:4px 10px;border:1px solid}
+#rec-tag{color:var(--rd);border-color:var(--rd);display:none;animation:blink 2s infinite}
+#rec-tag.active{display:inline-block}
+#integrity-tag{color:var(--gn);border-color:var(--gn)}
+
+/* ── Alert Banner ── */
+#alert-bar{
+  position:fixed;top:var(--nh);left:0;right:0;
+  background:var(--rd);color:var(--w);
+  padding:8px 20px;font-size:.82rem;font-weight:600;
+  text-align:center;z-index:99;
+  transform:translateY(-100%);transition:transform .25s;
+}
+#alert-bar.show{transform:translateY(0)}
+
+/* ── Main Split Layout ── */
+#main{
+  display:grid;grid-template-columns:300px 1fr;
+  height:calc(100vh - var(--nh));
+  margin-top:var(--nh);
+}
+
+/* ── LEFT: Camera Panel ── */
+#cam-panel{
+  border-right:1px solid #222;display:flex;flex-direction:column;
+  background:#050505;overflow:hidden;
+}
+#cam-header{
+  padding:12px 14px;border-bottom:1px solid #1A1A1A;
+  font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);
+  display:flex;justify-content:space-between;align-items:center;
+}
+#cam-dot{width:8px;height:8px;border-radius:50%;background:var(--rd);
+          animation:blink 2s infinite;flex-shrink:0}
+#cam-feed{
+  position:relative;background:#000;flex:0 0 225px;
+}
+#cam-video{width:100%;height:225px;object-fit:cover;display:block}
+#cam-overlay{
+  position:absolute;inset:0;border:2px solid transparent;
+  transition:border-color .3s;pointer-events:none;
+}
+#cam-overlay.alert{border-color:var(--rd)}
+#cam-overlay.ok{border-color:var(--gn)}
+#cam-canvas{display:none} /* hidden canvas for frame capture */
+
+/* Proctor log */
+#proctor-log{
+  flex:1;overflow-y:auto;padding:10px 12px;scrollbar-width:thin;scrollbar-color:#222 #000;
+}
+.plog-hdr{font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+           color:var(--m);margin-bottom:8px}
+.plog-item{
+  padding:6px 8px;margin-bottom:4px;font-size:.72rem;line-height:1.45;
+  border-left:2px solid;
+}
+.plog-item.ok{border-color:var(--gn);color:#999;background:#0D1A12}
+.plog-item.warn{border-color:var(--or);color:#DDD;background:#1A0F00}
+.plog-item.err{border-color:var(--rd);color:#FFF;background:#1A0000}
+.plog-time{font-size:.6rem;color:var(--m);margin-top:2px}
+
+/* Typing stats box */
+#typing-box{
+  border-top:1px solid #1A1A1A;padding:12px 14px;font-size:.75rem;color:var(--m);
+  display:grid;grid-template-columns:1fr 1fr;gap:6px;
+}
+.ts-item .ts-val{font-size:1.1rem;font-weight:700;color:var(--w);font-variant-numeric:tabular-nums}
+.ts-item .ts-lbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;color:var(--m)}
+
+/* ── RIGHT: Question Paper ── */
+#paper-panel{overflow-y:auto;background:var(--w);color:var(--k)}
+#paper-inner{max-width:800px;margin:0 auto;padding:36px 32px 100px}
+
+.paper-header{text-align:center;margin-bottom:36px;border-bottom:2px solid var(--k);padding-bottom:20px}
+.paper-inst-name{font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:6px}
+.paper-title{font-size:1.6rem;font-weight:700;line-height:1.1;color:var(--k)}
+.paper-meta{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
+  margin:20px 0;border:1px solid var(--lg);padding:14px;background:var(--g);
+}
+.pm-item .pm-val{font-size:.95rem;font-weight:700;color:var(--k)}
+.pm-item .pm-lbl{font-size:.65rem;color:var(--m);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.paper-instructions{
+  font-size:.82rem;line-height:1.65;color:#333;
+  border-left:3px solid var(--a);padding:10px 14px;background:#EEF2FF;
+  margin-bottom:28px;
+}
+
+/* Section heading */
+.section-hdr{
+  font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--a);margin:32px 0 16px;padding-bottom:6px;border-bottom:1px solid var(--lg);
+}
+
+/* Question block */
+.q-block{margin-bottom:24px;border:1px solid var(--lg)}
+.q-head{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:12px 14px;background:var(--g);border-bottom:1px solid var(--lg);
+  gap:8px;
+}
+.q-num{font-size:.75rem;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.06em;flex-shrink:0}
+.q-text{font-size:.92rem;color:var(--k);line-height:1.55;flex:1;padding:0 12px}
+.q-marks{
+  font-size:.7rem;font-weight:700;color:var(--a);flex-shrink:0;
+  border:1px solid var(--a);padding:2px 7px;white-space:nowrap;
+}
+.q-body{padding:12px 14px}
+.q-answer{
+  width:100%;border:none;outline:none;resize:vertical;
+  font-family:var(--font);font-size:.88rem;line-height:1.7;color:var(--k);
+  background:var(--w);min-height:90px;padding:6px 2px;
+}
+.q-answer:focus{border-bottom:2px solid var(--a)}
+.q-footer{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 14px;border-top:1px solid var(--lg);background:var(--g);
+  font-size:.65rem;color:var(--m);
+}
+.q-wc{font-variant-numeric:tabular-nums}
+
+/* Long answer gets more height */
+.q-block.long .q-answer{min-height:160px}
+
+/* ── Submit Footer Bar ── */
+#submit-bar{
+  position:fixed;bottom:0;left:300px;right:0;
+  background:var(--w);border-top:2px solid var(--k);
+  padding:12px 24px;display:flex;align-items:center;justify-content:space-between;
+  z-index:50;
+}
+.sb-info{font-size:.78rem;color:var(--m)}
+.sb-info strong{color:var(--k)}
+#submit-btn{
+  font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:12px 28px;background:var(--k);color:var(--w);border:2px solid var(--k);
+  cursor:pointer;transition:background .15s;
+}
+#submit-btn:hover{background:#222}
+#submit-btn:disabled{background:var(--m);border-color:var(--m);cursor:not-allowed}
+
+/* ── Modals ── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal{
+  background:var(--w);color:var(--k);padding:36px;max-width:440px;width:90%;
+  border-top:4px solid var(--k);
+}
+.modal h2{font-size:1.3rem;font-weight:700;margin-bottom:12px}
+.modal p{font-size:.88rem;color:#444;line-height:1.6;margin-bottom:20px}
+.modal-btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn-k{font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+       padding:11px 22px;background:var(--k);color:var(--w);border:none;cursor:pointer}
+.btn-k:hover{background:#222}
+.btn-o{background:transparent;color:var(--k);border:2px solid var(--k)}
+.btn-o:hover{background:var(--g)}
+.btn-danger{background:var(--rd);border-color:var(--rd);color:var(--w)}
+.btn-danger:hover{background:#AA0000}
+
+/* ── Permission Screen (before exam starts) ── */
+#perm-screen{
+  position:fixed;inset:0;background:var(--k);z-index:300;
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  text-align:center;padding:40px;gap:20px;
+}
+#perm-screen.hidden{display:none}
+.perm-logo{font-size:1rem;font-weight:700;letter-spacing:.05em;margin-bottom:8px}
+.perm-logo span{color:var(--a)}
+#perm-screen h1{font-size:1.8rem;font-weight:700;line-height:1.1}
+#perm-screen p{font-size:.9rem;color:var(--m);max-width:400px;line-height:1.65}
+.perm-steps{
+  border:1px solid #222;padding:20px 28px;text-align:left;max-width:400px;width:100%;
+}
+.perm-step{font-size:.82rem;color:#aaa;padding:6px 0;border-bottom:1px solid #1A1A1A;
+            display:flex;align-items:center;gap:10px}
+.perm-step:last-child{border-bottom:none}
+.step-icon{font-size:1rem}
+.step-check{margin-left:auto;color:var(--gn);font-weight:700;display:none}
+.step-check.done{display:block}
+#start-btn{
+  font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:14px 36px;background:var(--a);color:var(--w);border:none;cursor:pointer;
+  transition:background .15s;opacity:.5;pointer-events:none;
+}
+#start-btn.ready{opacity:1;pointer-events:all}
+#start-btn:hover.ready{background:#0035D0}
+#perm-error{color:var(--rd);font-size:.8rem;max-width:400px;display:none}
+
+/* ── Submitted Screen ── */
+#done-screen{
+  position:fixed;inset:0;background:var(--k);z-index:300;
+  display:none;align-items:center;justify-content:center;flex-direction:column;
+  text-align:center;padding:40px;gap:16px;
+}
+#done-screen.show{display:flex}
+.done-check{font-size:3rem;margin-bottom:8px}
+#done-screen h1{font-size:1.8rem;font-weight:700}
+#done-screen p{font-size:.9rem;color:var(--m);max-width:480px;line-height:1.7}
+#done-score{font-size:3rem;font-weight:700;color:var(--a)}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     PRE-EXAM PERMISSION SCREEN
+══════════════════════════════════════════ -->
+<div id="perm-screen">
+  <div class="perm-logo"><span>OS</span>EDUCATION CENTER</div>
+  <h1>Ready to Start Your Exam?</h1>
+  <p>
+    Before the exam begins, we need to verify your identity and enable
+    camera monitoring. Please complete the checklist below.
+  </p>
+
+  <div class="perm-steps">
+    <div class="perm-step" id="step-cam">
+      <span class="step-icon">📷</span>
+      Allow camera access
+      <span class="step-check" id="check-cam">✓</span>
+    </div>
+    <div class="perm-step" id="step-face">
+      <span class="step-icon">🔍</span>
+      Face detected in camera
+      <span class="step-check" id="check-face">✓</span>
+    </div>
+    <div class="perm-step" id="step-fullscreen">
+      <span class="step-icon">⛶</span>
+      Enter fullscreen mode
+      <span class="step-check" id="check-fullscreen">✓</span>
+    </div>
+  </div>
+
+  <p id="perm-error"></p>
+  <button id="start-btn" onclick="startExam()">Start Exam →</button>
+  <p style="font-size:.72rem;color:#444;max-width:400px">
+    Your camera will record throughout the exam for integrity purposes.
+    Suspicious behaviour (no face, multiple faces, tab switching) will be logged.
+  </p>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     MAIN EXAM NAV
+══════════════════════════════════════════ -->
+<nav id="nav">
+  <div class="nav-logo"><span>OS</span>EDUCATION CENTER</div>
+  <div id="timer">03:00:00</div>
+  <div class="nav-right">
+    <span class="tag" id="rec-tag">⏺ REC</span>
+    <span class="tag" id="integrity-tag">Integrity: 100%</span>
+    <span id="exam-title-nav" style="font-size:.75rem;color:var(--m)">Loading...</span>
+  </div>
+</nav>
+
+<!-- Alert banner -->
+<div id="alert-bar"></div>
+
+
+<!-- ══════════════════════════════════════════
+     MAIN SPLIT LAYOUT
+══════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- LEFT: Camera Panel -->
+  <div id="cam-panel">
+    <div class="cam-header">
+      <span>Live Camera</span>
+      <div id="cam-dot"></div>
+    </div>
+
+    <div id="cam-feed">
+      <video id="cam-video" autoplay muted playsinline></video>
+      <div id="cam-overlay"></div>
+      <canvas id="cam-canvas" width="320" height="240"></canvas>
+    </div>
+
+    <!-- Proctoring event log -->
+    <div id="proctor-log">
+      <div class="plog-hdr">Proctor Log</div>
+      <div id="plog-items"></div>
+    </div>
+
+    <!-- Typing stats -->
+    <div id="typing-box">
+      <div class="ts-item">
+        <div class="ts-val" id="ts-wpm">0</div>
+        <div class="ts-lbl">WPM</div>
+      </div>
+      <div class="ts-item">
+        <div class="ts-val" id="ts-words">0</div>
+        <div class="ts-lbl">Words</div>
+      </div>
+      <div class="ts-item">
+        <div class="ts-val" id="ts-answered">0/0</div>
+        <div class="ts-lbl">Answered</div>
+      </div>
+      <div class="ts-item">
+        <div class="ts-val" id="ts-alerts">0</div>
+        <div class="ts-lbl">Alerts</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: Question Paper -->
+  <div id="paper-panel">
+    <div id="paper-inner">
+
+      <div class="paper-header">
+        <div class="paper-inst-name">OS Education Center</div>
+        <div class="paper-title" id="paper-title">Loading Exam...</div>
+        <div class="paper-meta">
+          <div class="pm-item">
+            <div class="pm-val" id="paper-total-marks">100</div>
+            <div class="pm-lbl">Total Marks</div>
+          </div>
+          <div class="pm-item">
+            <div class="pm-val" id="paper-pass-marks">40</div>
+            <div class="pm-lbl">Pass Marks</div>
+          </div>
+          <div class="pm-item">
+            <div class="pm-val">3 Hours</div>
+            <div class="pm-lbl">Duration</div>
+          </div>
+        </div>
+        <div class="paper-instructions" id="paper-instructions">
+          Answer all questions. Write clearly and concisely.
+        </div>
+      </div>
+
+      <!-- Questions injected by JS -->
+      <div id="questions-container"></div>
+
+    </div>
+  </div>
+</div>
+
+
+<!-- Submit bar -->
+<div id="submit-bar">
+  <div class="sb-info">
+    Answered: <strong id="bar-answered">0</strong> /
+    <strong id="bar-total">0</strong> questions
+  </div>
+  <button id="submit-btn" onclick="confirmSubmit()">Submit Exam →</button>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════ -->
+
+<!-- Submit confirmation -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal">
+    <h2>Submit Exam?</h2>
+    <p id="modal-confirm-msg">
+      You have answered <strong id="modal-answered">0</strong> out of
+      <strong id="modal-total">0</strong> questions.
+      Once submitted, you cannot make changes.
+    </p>
+    <div class="modal-btns">
+      <button class="btn-k btn-danger" onclick="submitExam()">Yes, Submit Now</button>
+      <button class="btn-k btn-o" onclick="closeModal('modal-confirm')">Go Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto-submit (time up) -->
+<div class="modal-overlay" id="modal-timeup">
+  <div class="modal">
+    <h2>Time's Up!</h2>
+    <p>Your 3-hour exam time has expired. Your answers are being submitted automatically.</p>
+    <div class="modal-btns">
+      <button class="btn-k" onclick="submitExam()">Submit Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- Submitting spinner -->
+<div class="modal-overlay" id="modal-submitting">
+  <div class="modal" style="text-align:center">
+    <h2>Submitting...</h2>
+    <p>Please wait. Do not close this window.<br/>
+    Your answers and recording are being saved.</p>
+    <div id="submit-progress" style="margin-top:12px;font-size:.8rem;color:var(--m)">
+      Grading answers...</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     SUBMITTED SCREEN
+══════════════════════════════════════════ -->
+<div id="done-screen">
+  <div class="perm-logo"><span>OS</span>EDUCATION CENTER</div>
+  <div class="done-check">✅</div>
+  <h1>Exam Submitted</h1>
+  <div id="done-score"></div>
+  <p id="done-msg"></p>
+  <p style="font-size:.78rem;color:#555;max-width:420px">
+    Your performance report is being generated and will be available
+    after admin review. You will be notified when it's ready.
+  </p>
+  <a href="/student/dashboard"
+     style="font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+            padding:12px 28px;background:var(--a);color:var(--w);text-decoration:none;
+            margin-top:12px;display:inline-block">
+    Go to Dashboard
+  </a>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════ -->
+<script>
+/* ── Config (injected by Jinja2) ── */
+const CFG = {
+  sessionId    : "{{ session_id }}",
+  examId       : "{{ exam_id }}",
+  durationSecs : {{ duration_minutes | default(180) }} * 60,
+  apiBase      : "/api",
+  csrfToken    : "{{ csrf_token() if csrf_token is defined else '' }}",
+};
+
+/* ── State ── */
+const STATE = {
+  stream        : null,
+  recorder      : null,
+  recordedChunks: [],
+  chunkIndex    : 0,
+  questions     : [],
+  answers       : {},          // q_id → text
+  startTime     : null,
+  timerInterval : null,
+  proctorInterval: null,
+  typingInterval: null,
+  chunkInterval : null,
+  totalChars    : 0,
+  totalWords    : 0,
+  tabSwitches   : 0,
+  idlePeriods   : 0,
+  alertCount    : 0,
+  lastKeystroke : Date.now(),
+  camReady      : false,
+  faceReady     : false,
+  fullscreenReady: false,
+  submitted     : false,
+};
+
+/* ═══════════ 1. PERMISSION SCREEN ═══════════ */
+
+async function initCamera() {
+  try {
+    STATE.stream = await navigator.mediaDevices.getUserMedia({
+      video: { width:320, height:240, frameRate:2, facingMode:"user" },
+      audio: false,
+    });
+    document.getElementById("cam-video").srcObject = STATE.stream;
+    STATE.camReady = true;
+    document.getElementById("check-cam").classList.add("done");
+    // Detect face after 1.5s
+    setTimeout(detectFaceForPerm, 1500);
+  } catch(e) {
+    showPermError("Camera access denied. Please allow camera access and reload.");
+  }
+}
+
+function detectFaceForPerm() {
+  const frame = captureFrame();
+  if (!frame) { setTimeout(detectFaceForPerm, 1500); return; }
+  // Simple check: if frame captured successfully, mark as ready
+  // (DeepFace face detection is server-side)
+  STATE.faceReady = true;
+  document.getElementById("check-face").classList.add("done");
+  checkPermReady();
+}
+
+function requestFullscreen() {
+  const el = document.documentElement;
+  if (el.requestFullscreen) el.requestFullscreen();
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  STATE.fullscreenReady = true;
+  document.getElementById("check-fullscreen").classList.add("done");
+  checkPermReady();
+}
+
+function checkPermReady() {
+  if (STATE.camReady && STATE.faceReady) {
+    document.getElementById("start-btn").classList.add("ready");
+  }
+}
+
+function showPermError(msg) {
+  const el = document.getElementById("perm-error");
+  el.textContent = msg; el.style.display = "block";
+}
+
+/* ═══════════ 2. START EXAM ═══════════ */
+
+async function startExam() {
+  // Load exam questions
+  try {
+    const res  = await apiFetch(`/exam/questions/${CFG.sessionId}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to load exam");
+
+    STATE.questions = data.questions || [];
+    renderPaper(data);
+  } catch(e) {
+    showPermError("Failed to load exam: " + e.message);
+    return;
+  }
+
+  // Enter fullscreen
+  try { requestFullscreen(); } catch(e) {}
+
+  // Hide permission screen
+  document.getElementById("perm-screen").classList.add("hidden");
+
+  // Start systems
+  STATE.startTime = Date.now();
+  startTimer(CFG.durationSecs);
+  startProctoring();
+  startRecording();
+  startChunkUploader();
+  startTypingTracker();
+  setupTabDetection();
+
+  // Update submit bar
+  updateAnsweredCount();
+}
+
+/* ═══════════ 3. RENDER PAPER ═══════════ */
+
+function renderPaper(data) {
+  const exam  = data.exam  || {};
+  const paper = data.paper || {};
+
+  document.getElementById("paper-title").textContent     = exam.title || paper.paper_title || "Exam";
+  document.getElementById("paper-total-marks").textContent = exam.total_marks || 100;
+  document.getElementById("paper-pass-marks").textContent  = exam.pass_marks  || 40;
+  document.getElementById("paper-instructions").textContent = paper.instructions || exam.instructions || "Answer all questions.";
+  document.getElementById("exam-title-nav").textContent   = exam.title || "";
+
+  const container  = document.getElementById("questions-container");
+  const questions  = STATE.questions;
+
+  if (!questions.length) {
+    container.innerHTML = "<p style='color:#333;padding:20px'>No questions found.</p>";
+    return;
+  }
+
+  let html          = "";
+  let currentSection= "";
+  let totalQ        = 0;
+
+  questions.forEach((q, i) => {
+    const sec = q.section || (q.sub_type === "long" ? "B" : "A");
+    if (sec !== currentSection) {
+      currentSection = sec;
+      const secName  = sec === "A"
+        ? (paper.section_a_name || "Section A — Short Answer Questions")
+        : (paper.section_b_name || "Section B — Long Answer Questions");
+      html += `<div class="section-hdr">${secName}</div>`;
+    }
+
+    const qType = q.sub_type || q.type || "short";
+    const qId   = q.q_id || `Q${String(i+1).padStart(3,"0")}`;
+    totalQ++;
+
+    html += `
+    <div class="q-block ${qType}" id="qblock-${qId}">
+      <div class="q-head">
+        <span class="q-num">Q${i+1}</span>
+        <span class="q-text">${escHtml(q.question)}</span>
+        <span class="q-marks">${q.marks} Marks</span>
+      </div>
+      <div class="q-body">
+        <textarea
+          class="q-answer"
+          id="ans-${qId}"
+          data-qid="${qId}"
+          placeholder="Type your answer here..."
+          rows="${qType === 'long' ? 10 : 5}"
+          oninput="onAnswerInput(this)"
+        ></textarea>
+      </div>
+      <div class="q-footer">
+        <span class="q-wc" id="wc-${qId}">0 words</span>
+        <span>${qType === 'long' ? 'Long Answer' : 'Short Answer'} · ${q.marks} marks</span>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+  document.getElementById("bar-total").textContent = totalQ;
+  document.getElementById("ts-answered").textContent = `0/${totalQ}`;
+}
+
+/* ═══════════ 4. ANSWER TRACKING ═══════════ */
+
+function onAnswerInput(el) {
+  const qId   = el.dataset.qid;
+  const text  = el.value;
+  STATE.answers[qId] = text;
+
+  // Word count
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  document.getElementById(`wc-${qId}`).textContent = `${words} word${words!==1?'s':''}`;
+
+  // Typing stats
+  STATE.lastKeystroke = Date.now();
+
+  updateAnsweredCount();
+}
+
+function updateAnsweredCount() {
+  const answered = Object.values(STATE.answers).filter(a => a.trim().length > 5).length;
+  const total    = STATE.questions.length;
+  const pct      = total ? Math.round(answered/total*100) : 0;
+
+  document.getElementById("bar-answered").textContent  = answered;
+  document.getElementById("ts-answered").textContent   = `${answered}/${total}`;
+}
+
+/* ═══════════ 5. TIMER ═══════════ */
+
+function startTimer(durationSecs) {
+  let remaining = durationSecs;
+  const el      = document.getElementById("timer");
+
+  STATE.timerInterval = setInterval(() => {
+    remaining--;
+    const h = String(Math.floor(remaining/3600)).padStart(2,"0");
+    const m = String(Math.floor((remaining%3600)/60)).padStart(2,"0");
+    const s = String(remaining%60).padStart(2,"0");
+    el.textContent = `${h}:${m}:${s}`;
+
+    if (remaining <= 300 && remaining > 60)  el.className = "warn";
+    if (remaining <= 60)                     el.className = "danger";
+    if (remaining <= 0) {
+      clearInterval(STATE.timerInterval);
+      openModal("modal-timeup");
+      setTimeout(submitExam, 5000); // auto-submit after 5s
+    }
+  }, 1000);
+}
+
+/* ═══════════ 6. PROCTORING ═══════════ */
+
+function startProctoring() {
+  STATE.proctorInterval = setInterval(sendProctorPing, 10000); // every 10s
+}
+
+function captureFrame() {
+  const video  = document.getElementById("cam-video");
+  const canvas = document.getElementById("cam-canvas");
+  if (!video || !video.videoWidth) return null;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, 320, 240);
+  try {
+    return canvas.toDataURL("image/jpeg", 0.6).split(",")[1]; // base64
+  } catch(e) { return null; }
+}
+
+async function sendProctorPing() {
+  if (STATE.submitted) return;
+  const frame = captureFrame();
+  if (!frame) return;
+
+  try {
+    const res  = await apiFetch(
+      `/exam/proctor-ping/${CFG.sessionId}`,
+      "POST",
+      { frame_b64: frame }
+    );
+    const data = await res.json();
+
+    const overlay = document.getElementById("cam-overlay");
+    if (data.alert) {
+      STATE.alertCount++;
+      overlay.className = "alert";
+      showAlertBar(data.alert);
+      logProcEvent("err", data.alert);
+      document.getElementById("ts-alerts").textContent = STATE.alertCount;
+      updateIntegrityTag();
+      // Auto-hide overlay after 4s
+      setTimeout(() => { overlay.className = "ok"; }, 4000);
+    } else {
+      overlay.className = "ok";
+      setTimeout(() => { overlay.className = ""; }, 2000);
+    }
+  } catch(e) { /* silently fail — never crash exam */ }
+}
+
+function showAlertBar(msg) {
+  const bar = document.getElementById("alert-bar");
+  bar.textContent = "⚠ " + msg;
+  bar.classList.add("show");
+  clearTimeout(bar._t);
+  bar._t = setTimeout(() => bar.classList.remove("show"), 5000);
+}
+
+function logProcEvent(type, msg) {
+  const list    = document.getElementById("plog-items");
+  const div     = document.createElement("div");
+  const time    = new Date().toLocaleTimeString("en-IN", {hour12:false});
+  div.className = `plog-item ${type}`;
+  div.innerHTML = `${escHtml(msg)}<div class="plog-time">${time}</div>`;
+  list.prepend(div);
+  // Keep log max 30 entries
+  while (list.children.length > 30) list.removeChild(list.lastChild);
+}
+
+function updateIntegrityTag() {
+  const total = STATE.questions.length ? Math.ceil((Date.now()-STATE.startTime)/10000) : 1;
+  const pct   = Math.max(0, 100 - Math.round((STATE.alertCount/Math.max(total,1))*100));
+  document.getElementById("integrity-tag").textContent = `Integrity: ${pct}%`;
+}
+
+/* ═══════════ 7. VIDEO RECORDING ═══════════ */
+
+function startRecording() {
+  if (!STATE.stream || !window.MediaRecorder) return;
+  try {
+    const options = { mimeType: "video/webm;codecs=vp8" };
+    STATE.recorder = new MediaRecorder(STATE.stream, options);
+    STATE.recorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) STATE.recordedChunks.push(e.data);
+    };
+    STATE.recorder.start();
+    document.getElementById("rec-tag").classList.add("active");
+    logProcEvent("ok", "Recording started");
+  } catch(e) {
+    try {
+      STATE.recorder = new MediaRecorder(STATE.stream);
+      STATE.recorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) STATE.recordedChunks.push(e.data);
+      };
+      STATE.recorder.start();
+      document.getElementById("rec-tag").classList.add("active");
+    } catch(e2) { /* recording not supported */ }
+  }
+}
+
+/* ── Send chunks every 2 minutes ── */
+function startChunkUploader() {
+  STATE.chunkInterval = setInterval(uploadCurrentChunk, 120000); // 2 min
+}
+
+async function uploadCurrentChunk() {
+  if (!STATE.recorder || STATE.submitted) return;
+  try {
+    STATE.recorder.requestData(); // flush current data
+    await new Promise(r => setTimeout(r, 300));
+
+    if (!STATE.recordedChunks.length) return;
+    const blob = new Blob(STATE.recordedChunks, {type:"video/webm"});
+    STATE.recordedChunks = []; // clear sent chunks
+
+    const fd = new FormData();
+    fd.append("chunk", blob, `chunk_${STATE.chunkIndex}.webm`);
+    fd.append("chunk_index", STATE.chunkIndex++);
+
+    await fetch(`${CFG.apiBase}/exam/video-chunk/${CFG.sessionId}`, {
+      method  : "POST",
+      headers : {"Authorization": `Bearer ${getToken()}`},
+      body    : fd,
+    });
+    logProcEvent("ok", `Video chunk ${STATE.chunkIndex} saved`);
+  } catch(e) { /* silently fail */ }
+}
+
+/* ═══════════ 8. TYPING STATS ═══════════ */
+
+function startTypingTracker() {
+  STATE.typingInterval = setInterval(() => {
+    // Total words across all answers
+    let total = 0;
+    Object.values(STATE.answers).forEach(a => {
+      if (a.trim()) total += a.trim().split(/\s+/).length;
+    });
+    STATE.totalWords = total;
+
+    // WPM: total words / elapsed minutes
+    const elapsedMins = (Date.now() - STATE.startTime) / 60000;
+    const wpm = elapsedMins > 0.1 ? Math.round(total / elapsedMins) : 0;
+
+    document.getElementById("ts-wpm").textContent   = wpm;
+    document.getElementById("ts-words").textContent = total;
+
+    // Idle detection: no keystroke for >120s
+    if (Date.now() - STATE.lastKeystroke > 120000) {
+      STATE.idlePeriods++;
+      STATE.lastKeystroke = Date.now(); // reset so we don't keep counting same idle
+    }
+  }, 5000);
+}
+
+/* ═══════════ 9. TAB DETECTION ═══════════ */
+
+function setupTabDetection() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && !STATE.submitted) {
+      STATE.tabSwitches++;
+      logProcEvent("warn", "Tab/window switch detected");
+      showAlertBar("Warning: Switching tabs is not allowed during the exam.");
+      // Notify server
+      apiFetch(`/exam/tab-switch/${CFG.sessionId}`, "POST", {}).catch(()=>{});
+    }
+  });
+}
+
+/* ═══════════ 10. SUBMIT ═══════════ */
+
+function confirmSubmit() {
+  const answered = Object.values(STATE.answers).filter(a => a.trim().length > 5).length;
+  const total    = STATE.questions.length;
+  document.getElementById("modal-answered").textContent = answered;
+  document.getElementById("modal-total").textContent    = total;
+  document.getElementById("modal-confirm-msg").innerHTML =
+    `You have answered <strong>${answered}</strong> out of <strong>${total}</strong> questions.<br>
+     Once submitted, you cannot make changes.`;
+  openModal("modal-confirm");
+}
+
+async function submitExam() {
+  if (STATE.submitted) return;
+  STATE.submitted = true;
+
+  closeModal("modal-confirm");
+  closeModal("modal-timeup");
+  openModal("modal-submitting");
+
+  // Stop all intervals
+  clearInterval(STATE.timerInterval);
+  clearInterval(STATE.proctorInterval);
+  clearInterval(STATE.typingInterval);
+  clearInterval(STATE.chunkInterval);
+
+  // Stop recording — upload final chunk
+  if (STATE.recorder && STATE.recorder.state !== "inactive") {
+    STATE.recorder.stop();
+  }
+  await new Promise(r => setTimeout(r, 600));
+  await uploadCurrentChunk();
+
+  // Build answers array
+  const answers = STATE.questions.map(q => {
+    const qId = q.q_id || q.question_id;
+    return { q_id: qId, answer: STATE.answers[qId] || "" };
+  });
+
+  // Typing data
+  const elapsed   = (Date.now() - STATE.startTime) / 1000;
+  const totalWords= STATE.totalWords;
+  const wpm       = elapsed > 0 ? Math.round((totalWords / (elapsed / 60))) : 0;
+  const typingData = {
+    wpm                   : wpm,
+    total_words           : totalWords,
+    total_chars           : STATE.totalChars,
+    tab_switches          : STATE.tabSwitches,
+    idle_periods          : STATE.idlePeriods,
+    avg_seconds_per_question: STATE.questions.length > 0
+      ? Math.round(elapsed / STATE.questions.length) : 0,
+  };
+
+  setSubmitProgress("Grading your answers with AI...");
+
+  try {
+    const res  = await apiFetch(
+      `/exam/submit-v2/${CFG.sessionId}`,
+      "POST",
+      { answers, typing_data: typingData }
+    );
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Submission failed");
+
+    setSubmitProgress("Generating performance report...");
+    await new Promise(r => setTimeout(r, 1000));
+
+    // Show done screen
+    closeModal("modal-submitting");
+    showDoneScreen(data);
+
+  } catch(e) {
+    closeModal("modal-submitting");
+    STATE.submitted = false;
+    showAlertBar("Submission failed: " + e.message + " — Please try again.");
+    document.getElementById("submit-btn").disabled = false;
+  } finally {
+    // Stop camera stream
+    if (STATE.stream) STATE.stream.getTracks().forEach(t => t.stop());
+  }
+}
+
+function showDoneScreen(data) {
+  const screen = document.getElementById("done-screen");
+  document.getElementById("done-score").textContent =
+    `${data.scored_marks}/${data.total_marks} (${data.percentage}%)`;
+  document.getElementById("done-msg").innerHTML =
+    data.passed
+      ? `<strong style="color:var(--gn)">PASSED</strong> — Grade: ${data.grade}. Congratulations!<br>
+         Your certificate is pending admin approval.`
+      : `<strong style="color:var(--rd)">NOT PASSED</strong> — Passing marks: ${data.total_marks > 0 ? Math.round(data.total_marks*0.4) : 40}.<br>
+         Please speak to your teacher about re-attempting.`;
+  screen.classList.add("show");
+}
+
+function setSubmitProgress(msg) {
+  document.getElementById("submit-progress").textContent = msg;
+}
+
+/* ═══════════ UTILITIES ═══════════ */
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function openModal(id)  { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+
+function getToken() {
+  return localStorage.getItem("osec_token") ||
+         sessionStorage.getItem("osec_token") || "";
+}
+
+function apiFetch(path, method="GET", body=null) {
+  const opts = {
+    method,
+    headers: {
+      "Content-Type" : "application/json",
+      "Authorization": `Bearer ${getToken()}`,
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(CFG.apiBase + path, opts);
+}
+
+/* ═══════════ BOOT ═══════════ */
+window.addEventListener("DOMContentLoaded", () => {
+  initCamera();
+  logProcEvent("ok", "Exam system initialised");
+});
+
+// Block right-click and text selection during exam
+document.addEventListener("contextmenu", e => e.preventDefault());
+</script>
+</body>
+</html>

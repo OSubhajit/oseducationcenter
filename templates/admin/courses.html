@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Courses — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Courses</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        New Course
+      </button>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" id="courseCount">Courses</span>
+          <div class="search-bar">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="searchInput" placeholder="Search courses…" oninput="debSearch()">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Course ID</th><th>Name</th><th>Category</th><th>Duration</th><th>Fee (₹)</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-backdrop hidden" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">New Course</h3>
+      <button class="modal-close" onclick="closeModal()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="modalErr" class="alert alert-error hidden"></div>
+      <div class="form-group"><label>Course Name *</label><input id="fName" type="text" placeholder="e.g. Computer Basics"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Category *</label>
+          <select id="fCat"><option value="">Select…</option><option>Computer Basics</option><option>Programming</option><option>Web Development</option><option>Office Skills</option><option>Design</option><option>Networking</option><option>Other</option></select>
+        </div>
+        <div class="form-group"><label>Duration (weeks) *</label><input id="fDur" type="number" placeholder="12" min="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Fee (₹) *</label><input id="fFee" type="number" placeholder="5000" min="0"></div>
+        <div class="form-group"><label>Max Students</label><input id="fMax" type="number" placeholder="30" min="1"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="fDesc" placeholder="What students will learn…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="saveBtn" onclick="saveCourse()">Save Course</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("courses","admin");
+let page=1, searchVal="", editId=null;
+let debTimer=null;
+function debSearch() { clearTimeout(debTimer); debTimer=setTimeout(()=>{searchVal=document.getElementById("searchInput").value.trim();page=1;loadCourses();},350); }
+
+async function loadCourses() {
+  const res = await api.get(`/admin/courses?page=${page}&per_page=20&search=${encodeURIComponent(searchVal)}`);
+  if (!res?.ok) return;
+  const { courses=[], pagination={} } = res.data;
+  document.getElementById("courseCount").textContent = `Courses (${pagination.total||0})`;
+  if (!courses.length) {
+    document.getElementById("tbody").innerHTML = `<tr><td colspan="7"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg><p>No courses yet. Create your first course.</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML=""; return;
+  }
+  document.getElementById("tbody").innerHTML = courses.map(c=>`<tr>
+    <td><span class="mono">${escHtml(c.course_id)}</span></td>
+    <td><span style="font-weight:500">${escHtml(c.name)}</span></td>
+    <td>${escHtml(c.category||"—")}</td>
+    <td>${c.duration_weeks||"—"}w</td>
+    <td>₹${(c.fee||0).toLocaleString("en-IN")}</td>
+    <td>${statusBadge(c.active?"active":"inactive")}</td>
+    <td style="text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick='editCourse(${JSON.stringify(c)})'>Edit</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCourse('${c.course_id}','${escHtml(c.name)}')">Delete</button>
+    </td>
+  </tr>`).join("");
+  const el=document.getElementById("pagination"); let html="";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadCourses()">${i}</button>`;
+  el.innerHTML=html;
+}
+
+function openModal() { editId=null; document.getElementById("modalTitle").textContent="New Course"; document.getElementById("modal").classList.remove("hidden"); ["fName","fDesc","fDur","fFee","fMax"].forEach(id=>document.getElementById(id).value=""); document.getElementById("fCat").value=""; document.getElementById("modalErr").classList.add("hidden"); }
+function closeModal() { document.getElementById("modal").classList.add("hidden"); }
+function editCourse(c) { editId=c.course_id; document.getElementById("modalTitle").textContent="Edit Course"; document.getElementById("fName").value=c.name||""; document.getElementById("fCat").value=c.category||""; document.getElementById("fDur").value=c.duration_weeks||""; document.getElementById("fFee").value=c.fee||""; document.getElementById("fMax").value=c.max_students||""; document.getElementById("fDesc").value=c.description||""; document.getElementById("modalErr").classList.add("hidden"); document.getElementById("modal").classList.remove("hidden"); }
+
+async function saveCourse() {
+  const btn=document.getElementById("saveBtn"), err=document.getElementById("modalErr");
+  err.classList.add("hidden");
+  const data={name:document.getElementById("fName").value.trim(), category:document.getElementById("fCat").value, duration_weeks:parseInt(document.getElementById("fDur").value)||0, fee:parseFloat(document.getElementById("fFee").value)||0, max_students:parseInt(document.getElementById("fMax").value)||30, description:document.getElementById("fDesc").value.trim()};
+  if(!data.name||!data.category||!data.duration_weeks){err.textContent="Name, category and duration are required.";err.classList.remove("hidden");return;}
+  showLoading(btn,"Saving…");
+  const res = editId ? await api.put(`/admin/courses/${editId}`,data) : await api.post("/admin/courses",data);
+  stopLoading(btn);
+  if(res?.ok){closeModal();showToast(editId?"Course updated":"Course created","success");loadCourses();}
+  else{err.textContent=res?.data?.error||"Save failed.";err.classList.remove("hidden");}
+}
+async function deleteCourse(courseId, name) {
+  if (!confirm(`Delete course "${name}"?\nThis cannot be undone. Blocked if active batches exist.`)) return;
+  const res = await api.delete(`/admin/courses/${courseId}`);
+  if (res?.ok) { showToast("Course deleted", "success"); loadCourses(); }
+  else showToast(res?.data?.error || "Delete failed.", "error");
+}
+loadCourses();
+</script>
+</body></html>

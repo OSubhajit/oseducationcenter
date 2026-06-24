@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Exam — OSEDu</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+<style>
+  body { background: var(--g1); }
+  .exam-wrap { max-width: 760px; margin: 0 auto; padding: 20px 16px 88px; }
+  .exam-topbar { background: var(--white); border-bottom: 1px solid var(--g3); position: sticky; top: 0; z-index: 40; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .q-progress-bar { height: 3px; background: var(--g3); border-radius: 2px; margin-top: 6px; width: 180px; }
+  .q-progress-fill { height: 100%; background: var(--black); border-radius: 2px; transition: width .3s; }
+  .q-sidebar { position: fixed; right: 16px; top: 76px; width: 188px; }
+  .q-grid { display: grid; grid-template-columns: repeat(8,1fr); gap: 4px; }
+  .q-dot { width: 22px; height: 22px; border-radius: 3px; background: var(--g2); border: 1px solid var(--g3); font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .1s; }
+  .q-dot.answered { background: var(--black); color: var(--white); border-color: var(--black); }
+  .q-dot.current  { border: 2px solid var(--black); }
+  .submit-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1px solid var(--g3); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 40; }
+  @media(max-width:1100px){ .q-sidebar{display:none;} }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingScreen" style="display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:12px">
+  <div class="spinner"></div>
+  <div style="font-size:13px;color:var(--g5)">Loading exam…</div>
+</div>
+
+<!-- Start screen -->
+<div id="startScreen" style="display:none;min-height:100vh;align-items:center;justify-content:center;background:var(--g1)">
+  <div style="background:var(--white);border:1px solid var(--g3);border-radius:var(--rl);padding:32px;max-width:480px;width:100%;margin:20px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <div style="width:32px;height:32px;background:var(--black);border-radius:5px;display:flex;align-items:center;justify-content:center">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      </div>
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--g5)">OS Education Center</div>
+    </div>
+    <h2 id="startTitle" style="font-size:21px;margin-bottom:5px">—</h2>
+    <p id="startCourse" style="font-size:13px;color:var(--g5);margin-bottom:18px"></p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Duration</div>
+        <div id="startDur" style="font-weight:600;font-size:15px"></div>
+      </div>
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Questions</div>
+        <div id="startQcount" style="font-weight:600;font-size:15px"></div>
+      </div>
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Total Marks</div>
+        <div id="startTotal" style="font-weight:600;font-size:15px"></div>
+      </div>
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Pass Marks</div>
+        <div id="startPass" style="font-weight:600;font-size:15px"></div>
+      </div>
+    </div>
+
+    <div id="startInstr" style="font-size:13px;color:var(--g6);background:var(--g1);border-radius:var(--r);padding:12px;margin-bottom:18px;line-height:1.65"></div>
+
+    <div class="alert alert-warning" style="background:#fffbf0;border:1px solid #e8d89a;color:#6a4a00;padding:10px 12px;border-radius:var(--r);font-size:12.5px;margin-bottom:18px">
+      ⚠ Once started the timer cannot be paused. Your webcam will be monitored every 10 seconds for identity verification.
+    </div>
+
+    <div id="startErr" class="alert alert-error hidden" style="margin-bottom:14px"></div>
+    <button id="startBtn" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px" onclick="startExam()">
+      Start Exam
+    </button>
+    <a href="/student/dashboard" style="display:block;text-align:center;margin-top:12px;font-size:13px;color:var(--g5)">← Back to dashboard</a>
+  </div>
+</div>
+
+<!-- Active exam -->
+<div id="examScreen" style="display:none">
+  <div class="exam-topbar">
+    <div>
+      <div id="examTitle" style="font-weight:600;font-family:var(--fd);font-size:14px"></div>
+      <div class="q-progress-bar"><div class="q-progress-fill" id="progressFill" style="width:0%"></div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="text-align:right">
+        <div style="font-size:10px;color:var(--g5)">Answered</div>
+        <div style="font-weight:600;font-size:13px"><span id="answeredCount">0</span>/<span id="totalCount">0</span></div>
+      </div>
+      <div id="timerEl" class="exam-timer"></div>
+    </div>
+  </div>
+
+  <div style="display:flex">
+    <div class="exam-wrap" style="flex:1">
+      <div id="questionsContainer"></div>
+    </div>
+    <div class="q-sidebar">
+      <div class="card" style="padding:12px">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g5);margin-bottom:8px">Navigator</div>
+        <div class="q-grid" id="qGrid"></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g6)"><span style="width:12px;height:12px;background:var(--black);border-radius:2px;display:inline-block"></span>Answered</div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--g6)"><span style="width:12px;height:12px;background:var(--g2);border:1px solid var(--g3);border-radius:2px;display:inline-block"></span>Unanswered</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-bar">
+    <div style="font-size:12.5px;color:#b00"><span id="unansweredWarn"></span></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary btn-sm" onclick="scrollToFirst()">First unanswered</button>
+      <button id="submitBtn" class="btn btn-primary" onclick="confirmSubmit()">Submit Exam</button>
+    </div>
+  </div>
+</div>
+
+<!-- Result screen -->
+<div id="resultScreen" style="display:none;min-height:100vh;background:var(--g1);align-items:center;justify-content:center">
+  <div style="background:var(--white);border:1px solid var(--g3);border-radius:var(--rl);padding:32px;max-width:500px;width:100%;margin:20px">
+    <div id="resultIcon" style="text-align:center;margin-bottom:18px"></div>
+    <h2 id="resultTitle" style="text-align:center;font-size:22px;margin-bottom:5px"></h2>
+    <p id="resultSub" style="text-align:center;font-size:13px;color:var(--g5);margin-bottom:22px"></p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Score</div>
+        <div id="rScore" style="font-weight:700;font-size:18px;font-family:var(--fd)"></div>
+      </div>
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Percentage</div>
+        <div id="rPct" style="font-weight:700;font-size:18px;font-family:var(--fd)"></div>
+      </div>
+      <div style="background:var(--g1);border-radius:var(--r);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--g5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Grade</div>
+        <div id="rGrade" style="font-weight:700;font-size:18px;font-family:var(--fd)"></div>
+      </div>
+    </div>
+    <div id="certBlock" style="display:none;background:var(--g1);border-radius:var(--r);padding:12px;margin-bottom:18px;text-align:center">
+      <div style="font-size:12px;color:var(--g5);margin-bottom:8px">🎉 Certificate issued</div>
+      <div id="certId" class="mono" style="font-size:11px;margin-bottom:10px"></div>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <a id="verifyLink" href="#" target="_blank" class="btn btn-secondary btn-sm">Verify Online</a>
+        <a id="pdfLink"   href="#" target="_blank" class="btn btn-primary   btn-sm">Download PDF</a>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <a href="/student/results"   class="btn btn-secondary" style="flex:1;justify-content:center">View Results</a>
+      <a href="/student/dashboard" class="btn btn-primary"   style="flex:1;justify-content:center">Dashboard</a>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+if (!requireStudent()) throw "";
+
+// exam_id is the last path segment: /exam/OSEC-EXM-XXXXXX
+const examId = window.location.pathname.split("/").filter(Boolean).pop();
+
+let questions  = [];   // [{q_id, type, question, options:[{label,text}|string], marks}]
+let answers    = {};   // { q_id: {q_id, type, answer} }  — answer is the LABEL for MCQ
+let sessionId  = null;
+let endTime    = null;
+let timerInterval = null;
+
+/* ─── Normalise options ─────────────────────────────────────────────────────
+   Question-bank MCQs store options as [{label:"A", text:"..."}].
+   Legacy inline MCQs may store options as ["Option text", ...].
+   Returns an array of {label, text} either way.
+   The LABEL is submitted as the answer (matches correct_answer in grade_mcq).
+   The TEXT is shown to the student.
+──────────────────────────────────────────────────────────────────────────── */
+function normaliseOptions(opts = []) {
+  const letters = ["A","B","C","D","E","F"];
+  return opts.map((o, i) => {
+    if (typeof o === "object" && o !== null && (o.label || o.text)) {
+      return { label: (o.label || letters[i]).toUpperCase(), text: o.text || o.label };
+    }
+    // flat string — assign sequential label
+    return { label: letters[i], text: String(o) };
+  });
+}
+
+/* ─── Boot ──────────────────────────────────────────────────────────────── */
+async function boot() {
+  // 1. Check for an already-active session for THIS exam
+  const sessRes = await api.get("/exam/my-session");
+  if (sessRes?.ok && sessRes.data.active_session) {
+    const s = sessRes.data.active_session;
+    if (s.exam_id === examId) {
+      sessionId = s.session_id;
+      endTime   = new Date(s.end_time || s.deadline);
+      await loadQuestions(true, s);
+      return;
+    }
+  }
+
+  // 2. Fetch exam metadata for the start screen
+  const eRes = await api.get(`/student/exams/${examId}`);
+  hide("loadingScreen");
+
+  if (!eRes?.ok) {
+    const err = document.getElementById("startErr");
+    err.textContent = eRes?.data?.error || "Exam not found or you are not enrolled.";
+    err.classList.remove("hidden");
+    show("startScreen", "flex");
+    document.getElementById("startBtn").disabled = true;
+    return;
+  }
+
+  const exam = eRes.data.exam;
+  if (exam.already_taken) {
+    const err = document.getElementById("startErr");
+    err.textContent = "You have already completed this exam. No re-takes are allowed.";
+    err.classList.remove("hidden");
+    show("startScreen", "flex");
+    document.getElementById("startBtn").disabled = true;
+    return;
+  }
+
+  document.getElementById("startTitle").textContent  = exam.title;
+  document.getElementById("startCourse").textContent = "Course: " + exam.course_id;
+  document.getElementById("startDur").textContent    = exam.duration_minutes + " min";
+  document.getElementById("startQcount").textContent = exam.total_questions || "—";
+  document.getElementById("startTotal").textContent  = exam.total_marks;
+  document.getElementById("startPass").textContent   = exam.pass_marks;
+  document.getElementById("startInstr").textContent  = exam.instructions || "Read each question carefully before answering.";
+  show("startScreen", "flex");
+}
+
+/* ─── Start exam ────────────────────────────────────────────────────────── */
+async function startExam() {
+  const btn = document.getElementById("startBtn");
+  const err = document.getElementById("startErr");
+  err.classList.add("hidden");
+  showLoading(btn, "Starting…");
+
+  // Fix #2: correct endpoint is POST /api/exam/start with exam_id in body
+  const res = await api.post("/exam/start", { exam_id: examId });
+  stopLoading(btn);
+
+  if (!res?.ok) {
+    err.textContent = res?.data?.error || "Could not start exam.";
+    err.classList.remove("hidden");
+    return;
+  }
+
+  sessionId = res.data.session_id;
+  endTime   = new Date(res.data.deadline || res.data.end_time);
+  hide("startScreen");
+  await loadQuestions(false, res.data);
+}
+
+/* ─── Load & render questions ───────────────────────────────────────────── */
+async function loadQuestions(resuming, sessionData) {
+  show("examScreen");
+  hide("loadingScreen");
+  hide("startScreen");
+
+  const res = await api.get(`/exam/questions/${sessionId}`);
+  if (!res?.ok) {
+    showToast(res?.data?.error || "Failed to load questions.", "error");
+    return;
+  }
+
+  questions = res.data.questions || [];
+
+  // Restore any answers already saved on the session
+  if (resuming && res.data.saved_answers) {
+    res.data.saved_answers.forEach(a => { answers[a.q_id] = a; });
+  }
+
+  // Timer: prefer remaining_seconds from server over client-side end time
+  if (res.data.remaining_seconds != null) {
+    endTime = new Date(Date.now() + res.data.remaining_seconds * 1000);
+  }
+
+  document.getElementById("examTitle").textContent  = res.data.title || "Exam";
+  document.getElementById("totalCount").textContent = questions.length;
+
+  renderQuestions();
+  startTimer();
+  updateProgress();
+}
+
+/* ─── Render questions ──────────────────────────────────────────────────── */
+function renderQuestions() {
+  const container = document.getElementById("questionsContainer");
+  container.innerHTML = questions.map((q, idx) => {
+    const isMCQ      = q.type === "mcq";
+    const isAnswered = !!answers[q.q_id];
+    const opts       = isMCQ ? normaliseOptions(q.options) : [];
+
+    return `<div class="q-card${isAnswered ? " answered" : ""}" id="qcard-${q.q_id}" data-qid="${q.q_id}">
+      <div class="q-num" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--g6);margin-bottom:6px">
+        Question ${idx + 1} of ${questions.length}
+        <span style="margin-left:8px;background:var(--g2);padding:2px 8px;border-radius:10px">${q.marks} mark${q.marks !== 1 ? "s" : ""}</span>
+      </div>
+
+      <!-- Fix #4: field is "question" not "question_text" -->
+      <div class="q-text" style="font-size:14px;font-weight:500;margin-bottom:14px;line-height:1.6">${escHtml(q.question || q.question_text || "")}</div>
+
+      ${isMCQ ? opts.map(opt => {
+        // Fix #3: track answer by LABEL (what grade_mcq compares), show TEXT to student
+        const selected = answers[q.q_id]?.answer === opt.label;
+        return `<div class="opt${selected ? " selected" : ""}"
+                  onclick="selectMCQ('${q.q_id}', '${escHtml(opt.label)}', this)"
+                  style="display:flex;align-items:flex-start;gap:10px;padding:9px 12px;border:1px solid var(--g3);border-radius:var(--r);cursor:pointer;margin-bottom:7px;transition:all .1s${selected ? ";background:var(--black);color:var(--white);border-color:var(--black)" : ""}">
+                  <span style="width:22px;height:22px;border-radius:50%;background:${selected ? "var(--white)" : "var(--g2)"};color:${selected ? "var(--black)" : "var(--g7)"};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${escHtml(opt.label)}</span>
+                  <span>${escHtml(opt.text)}</span>
+                </div>`;
+      }).join("") :
+      `<textarea placeholder="Write your answer here…"
+          style="width:100%;min-height:120px;resize:vertical;border:1px solid var(--g3);border-radius:var(--r);padding:10px;font-size:13.5px;font-family:var(--fb)"
+          onchange="setWritten('${q.q_id}', this.value)">${answers[q.q_id]?.answer || ""}</textarea>`}
+    </div>`;
+  }).join("");
+
+  renderGrid();
+}
+
+/* ─── MCQ selection: store LABEL, not text ──────────────────────────────── */
+function selectMCQ(qId, label, clickedEl) {
+  // Deselect all options for this question
+  document.querySelectorAll(`#qcard-${qId} .opt`).forEach(el => {
+    el.style.background   = "";
+    el.style.color        = "";
+    el.style.borderColor  = "";
+    const circle = el.querySelector("span");
+    if (circle) { circle.style.background = "var(--g2)"; circle.style.color = "var(--g7)"; }
+  });
+  // Select clicked
+  clickedEl.style.background  = "var(--black)";
+  clickedEl.style.color       = "var(--white)";
+  clickedEl.style.borderColor = "var(--black)";
+  const circle = clickedEl.querySelector("span");
+  if (circle) { circle.style.background = "var(--white)"; circle.style.color = "var(--black)"; }
+
+  answers[qId] = { q_id: qId, type: "mcq", answer: label };
+  document.getElementById("qcard-" + qId).classList.add("answered");
+  updateProgress();
+  renderGrid();
+}
+
+function setWritten(qId, value) {
+  if (value.trim()) {
+    answers[qId] = { q_id: qId, type: "written", answer: value.trim() };
+    document.getElementById("qcard-" + qId).classList.add("answered");
+  } else {
+    delete answers[qId];
+    document.getElementById("qcard-" + qId).classList.remove("answered");
+  }
+  updateProgress();
+  renderGrid();
+}
+
+function renderGrid() {
+  document.getElementById("qGrid").innerHTML = questions.map((q, i) =>
+    `<div class="q-dot${answers[q.q_id] ? " answered" : ""}" onclick="scrollToQ('${q.q_id}')" title="Q${i+1}">${i+1}</div>`
+  ).join("");
+}
+
+function updateProgress() {
+  const n = Object.keys(answers).length;
+  const t = questions.length;
+  document.getElementById("answeredCount").textContent = n;
+  document.getElementById("progressFill").style.width  = (t ? (n / t * 100) : 0) + "%";
+  const rem = t - n;
+  document.getElementById("unansweredWarn").textContent = rem > 0 ? `${rem} question${rem > 1 ? "s" : ""} unanswered` : "";
+}
+
+function scrollToQ(qId) { document.getElementById("qcard-" + qId)?.scrollIntoView({ behavior:"smooth", block:"center" }); }
+function scrollToFirst() {
+  const uq = questions.find(q => !answers[q.q_id]);
+  if (uq) scrollToQ(uq.q_id);
+  else showToast("All questions answered!", "success");
+}
+
+/* ─── Timer ─────────────────────────────────────────────────────────────── */
+function startTimer() {
+  const el = document.getElementById("timerEl");
+  timerInterval = setInterval(() => {
+    const rem = Math.max(0, endTime - Date.now());
+    const m   = Math.floor(rem / 60000);
+    const s   = Math.floor((rem % 60000) / 1000);
+    el.textContent = `${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+    el.className   = "exam-timer" + (rem < 300000 ? " urgent" : "");
+    if (rem <= 0) { clearInterval(timerInterval); showToast("Time is up! Submitting…","warning"); submitExam(); }
+  }, 1000);
+}
+
+/* ─── Submit ─────────────────────────────────────────────────────────────── */
+async function confirmSubmit() {
+  const unanswered = questions.length - Object.keys(answers).length;
+  const msg = unanswered > 0
+    ? `You have ${unanswered} unanswered question${unanswered > 1 ? "s" : ""}. Submit anyway?`
+    : "Submit your exam now?";
+  if (!confirm(msg)) return;
+  await submitExam();
+}
+
+async function submitExam() {
+  clearInterval(timerInterval);
+  const btn = document.getElementById("submitBtn");
+  showLoading(btn, "Submitting…");
+  const res = await api.post(`/exam/submit/${sessionId}`, { answers: Object.values(answers) });
+  stopLoading(btn);
+  if (!res?.ok) {
+    showToast(res?.data?.error || "Submission failed — please try again.", "error");
+    return;
+  }
+  showResult(res.data);
+}
+
+/* ─── Result display ─────────────────────────────────────────────────────── */
+function showResult(data) {
+  hide("examScreen");
+  const passed = data.passed;
+  document.getElementById("resultIcon").innerHTML = passed
+    ? `<div style="width:60px;height:60px;border-radius:50%;background:#f0faf0;border:2px solid #c3e6c3;display:flex;align-items:center;justify-content:center;margin:0 auto"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#1a7a1a" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></div>`
+    : `<div style="width:60px;height:60px;border-radius:50%;background:#fff5f5;border:2px solid #f5c0c0;display:flex;align-items:center;justify-content:center;margin:0 auto"><svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#b00" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></div>`;
+  document.getElementById("resultTitle").textContent = passed ? "Congratulations!" : "Better luck next time";
+  document.getElementById("resultSub").textContent   = passed ? "You passed the exam." : (data.message_fail || "You did not meet the passing criteria.");
+  document.getElementById("rScore").textContent = `${data.scored_marks}/${data.total_marks}`;
+  document.getElementById("rPct").textContent   = data.percentage + "%";
+  const rg = document.getElementById("rGrade");
+  rg.textContent = data.grade;
+  rg.className   = "grade " + gradeClass(data.grade);
+
+  if (passed && data.certificate) {
+    document.getElementById("certBlock").style.display = "block";
+    document.getElementById("certId").textContent      = data.certificate.cert_id;
+    document.getElementById("verifyLink").href         = data.certificate.verify_url;
+    document.getElementById("pdfLink").href            = data.certificate.pdf_url || "#";
+    if (!data.certificate.pdf_url) document.getElementById("pdfLink").style.display = "none";
+  }
+  show("resultScreen", "flex");
+}
+
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+function show(id, display = "block") { const el = document.getElementById(id); el.style.display = display; }
+function hide(id)                    { document.getElementById(id).style.display = "none"; }
+
+boot();
+</script>
+</body>
+</html>

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fees — OSEDu Admin</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Fees</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openCreateModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Create Fee Record
+      </button>
+    </header>
+    <main class="page-content">
+      <!-- Summary row -->
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px">
+        <div class="stat-card"><div class="stat-label">Total Collected</div><div class="stat-value" id="totalCollected" style="font-size:28px">₹—</div></div>
+        <div class="stat-card"><div class="stat-label">Total Due</div><div class="stat-value" id="totalDue" style="font-size:28px;color:var(--g6)">₹—</div></div>
+        <div class="stat-card"><div class="stat-label">Fully Paid</div><div class="stat-value" id="paidCount">—</div><div class="stat-sub">of <span id="totalCount">—</span> students</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="search-bar">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <input type="text" id="searchInput" placeholder="Search by student ID…" oninput="debSearch()">
+          </div>
+          <select id="statusFilter" style="width:160px" onchange="page=1;loadFees()">
+            <option value="">All statuses</option>
+            <option value="paid">Paid</option>
+            <option value="partial">Partial</option>
+            <option value="unpaid">Unpaid</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Student ID</th><th>Course</th><th>Total</th><th>Paid</th><th>Due</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Record Payment Modal -->
+<div class="modal-backdrop hidden" id="payModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Record Payment</h3>
+      <button class="modal-close" onclick="closeModal('payModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="payErr" class="alert alert-error hidden"></div>
+      <p style="font-size:13px;color:var(--g6);margin-bottom:14px">Fee ID: <span class="mono" id="payFeeId"></span></p>
+      <div class="form-row">
+        <div class="form-group"><label>Amount (₹) *</label><input id="pAmount" type="number" placeholder="1000" min="1"></div>
+        <div class="form-group"><label>Mode *</label>
+          <select id="pMode"><option value="cash">Cash</option><option value="upi">UPI</option><option value="bank">Bank Transfer</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Note</label><input id="pNote" type="text" placeholder="Optional note"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('payModal')">Cancel</button>
+      <button class="btn btn-primary" id="payBtn" onclick="recordPayment()">Record Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Fee Modal -->
+<div class="modal-backdrop hidden" id="createModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Create Fee Record</h3>
+      <button class="modal-close" onclick="closeModal('createModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="createErr" class="alert alert-error hidden"></div>
+      <div class="form-group"><label>Student ID *</label><input id="cStudent" type="text" placeholder="OSEC-STU-XXXXXX" style="font-family:var(--fm)"></div>
+      <div class="form-group"><label>Course ID *</label><input id="cCourse" type="text" placeholder="OSEC-CRS-XXXXXX" style="font-family:var(--fm)"></div>
+      <div class="form-group"><label>Batch ID *</label><input id="cBatch" type="text" placeholder="BATCH-XXXXXX" style="font-family:var(--fm)"></div>
+      <div class="form-group"><label>Total Amount (₹) *</label><input id="cTotal" type="number" placeholder="5000" min="0"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+      <button class="btn btn-primary" id="createBtn" onclick="createFee()">Create</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireAdmin()) throw "";
+renderSidebar("fees","admin");
+let page=1, searchVal="", activeFeeId=null;
+let debTimer=null;
+function debSearch(){clearTimeout(debTimer);debTimer=setTimeout(()=>{searchVal=document.getElementById("searchInput").value.trim();page=1;loadFees();},350);}
+
+async function loadFees(){
+  const sf=document.getElementById("statusFilter").value;
+  const res=await api.get(`/admin/fees?page=${page}&per_page=20&search=${encodeURIComponent(searchVal)}${sf?"&status="+sf:""}`);
+  if(!res?.ok) return;
+  const {fees=[],pagination={}} = res.data;
+  let collected=0,due=0,paid=0;
+  fees.forEach(f=>{collected+=f.paid_amount||0;due+=f.due_amount||0;if(f.status==="paid")paid++;});
+  document.getElementById("totalCollected").textContent="₹"+collected.toLocaleString("en-IN");
+  document.getElementById("totalDue").textContent="₹"+due.toLocaleString("en-IN");
+  document.getElementById("paidCount").textContent=paid;
+  document.getElementById("totalCount").textContent=pagination.total||0;
+  if(!fees.length){
+    document.getElementById("tbody").innerHTML=`<tr><td colspan="7"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg><p>No fee records found.</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML=""; return;
+  }
+  document.getElementById("tbody").innerHTML=fees.map(f=>`<tr>
+    <td><span class="mono">${escHtml(f.student_id)}</span></td>
+    <td><span class="mono" style="font-size:11px">${escHtml(f.course_id)}</span></td>
+    <td>₹${(f.total_amount||0).toLocaleString("en-IN")}</td>
+    <td>₹${(f.paid_amount||0).toLocaleString("en-IN")}</td>
+    <td>₹${(f.due_amount||0).toLocaleString("en-IN")}</td>
+    <td>${statusBadge(f.status)}</td>
+    <td style="text-align:right">
+      ${f.status!=="paid"?`<button class="btn btn-primary btn-sm" onclick="openPayModal('${f.fee_id}')">Record Payment</button>`:""}
+    </td>
+  </tr>`).join("");
+  const el=document.getElementById("pagination"); let html="";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadFees()">${i}</button>`;
+  el.innerHTML=html;
+}
+
+function openPayModal(feeId){activeFeeId=feeId;document.getElementById("payFeeId").textContent=feeId;document.getElementById("pAmount").value="";document.getElementById("pNote").value="";document.getElementById("payErr").classList.add("hidden");document.getElementById("payModal").classList.remove("hidden");}
+function openCreateModal(){document.getElementById("createModal").classList.remove("hidden");document.getElementById("createErr").classList.add("hidden");}
+function closeModal(id){document.getElementById(id).classList.add("hidden");}
+
+async function recordPayment(){
+  const btn=document.getElementById("payBtn"),err=document.getElementById("payErr");
+  err.classList.add("hidden");
+  const amount=parseFloat(document.getElementById("pAmount").value);
+  if(!amount||amount<=0){err.textContent="Enter a valid amount.";err.classList.remove("hidden");return;}
+  showLoading(btn,"Recording…");
+  const res=await api.post(`/admin/fees/${activeFeeId}/pay`,{amount,mode:document.getElementById("pMode").value,note:document.getElementById("pNote").value.trim()});
+  stopLoading(btn);
+  if(res?.ok){closeModal("payModal");showToast(`Payment of ₹${amount.toLocaleString("en-IN")} recorded`,"success");loadFees();}
+  else{err.textContent=res?.data?.error||"Failed.";err.classList.remove("hidden");}
+}
+
+async function createFee(){
+  const btn=document.getElementById("createBtn"),err=document.getElementById("createErr");
+  err.classList.add("hidden");
+  const data={student_id:document.getElementById("cStudent").value.trim().toUpperCase(),course_id:document.getElementById("cCourse").value.trim().toUpperCase(),batch_id:document.getElementById("cBatch").value.trim().toUpperCase(),total_amount:parseFloat(document.getElementById("cTotal").value)||0};
+  if(!data.student_id||!data.course_id||!data.batch_id||!data.total_amount){err.textContent="All fields are required.";err.classList.remove("hidden");return;}
+  showLoading(btn,"Creating…");
+  const res=await api.post("/admin/fees",data);
+  stopLoading(btn);
+  if(res?.ok){closeModal("createModal");showToast("Fee record created","success");loadFees();}
+  else{err.textContent=res?.data?.error||"Failed.";err.classList.remove("hidden");}
+}
+loadFees();
+</script>
+</body></html>

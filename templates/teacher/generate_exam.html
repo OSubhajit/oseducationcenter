@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Generate Exam — Teacher Portal</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --k:#0A0A0A;--w:#FFFFFF;--g:#F4F4F4;--lg:#E5E5E5;
+  --a:#0047FF;--gn:#00A86B;--rd:#CC0000;--or:#FF6B00;--m:#888;
+  --font:"Inter",system-ui,sans-serif;--nh:56px;
+}
+html,body{min-height:100%;background:var(--g);color:var(--k);font-family:var(--font)}
+
+/* ── Nav ── */
+nav{
+  position:fixed;top:0;left:0;right:0;height:var(--nh);
+  background:var(--k);border-bottom:1px solid #222;
+  display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:100;
+}
+.nav-logo{font-size:.85rem;font-weight:700;letter-spacing:.05em;color:var(--w)}
+.nav-logo span{color:var(--a)}
+.nav-right{display:flex;gap:12px;align-items:center}
+.nav-link{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+           color:#888;text-decoration:none;transition:color .12s}
+.nav-link:hover,.nav-link.active{color:var(--w)}
+
+/* ── Main layout ── */
+main{margin-top:var(--nh);padding:40px 24px;max-width:1000px;margin-left:auto;margin-right:auto}
+
+/* ── Page header ── */
+.ph{margin-bottom:36px}
+.ph-label{font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:8px}
+.ph-title{font-size:1.8rem;font-weight:700;line-height:1.1}
+.ph-sub{font-size:.88rem;color:var(--m);margin-top:6px;line-height:1.55}
+
+/* ── Cards ── */
+.card{background:var(--w);border:1px solid var(--lg);padding:28px;margin-bottom:20px}
+.card-title{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+             color:var(--m);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--lg)}
+
+/* ── Steps indicator ── */
+.steps{display:flex;gap:0;margin-bottom:32px;border:1px solid var(--lg);background:var(--w)}
+.step{flex:1;padding:14px 18px;display:flex;align-items:center;gap:10px;
+       border-right:1px solid var(--lg);cursor:default}
+.step:last-child{border-right:none}
+.step.active{background:var(--k);color:var(--w)}
+.step.done{background:var(--gn);color:var(--w)}
+.step-n{width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;
+         display:flex;align-items:center;justify-content:center;
+         font-size:.65rem;font-weight:700;flex-shrink:0}
+.step-lbl{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+
+/* ── Form elements ── */
+.fgroup{margin-bottom:18px}
+label{display:block;font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+      color:var(--m);margin-bottom:7px}
+select,input[type="text"],input[type="number"]{
+  width:100%;padding:11px 12px;border:1.5px solid var(--lg);font-family:var(--font);
+  font-size:.9rem;background:var(--w);color:var(--k);outline:none;
+  transition:border-color .12s;appearance:none;
+}
+select:focus,input:focus{border-color:var(--a)}
+
+/* ── Drop zone ── */
+#drop-zone{
+  border:2px dashed var(--lg);padding:48px 32px;text-align:center;cursor:pointer;
+  transition:border-color .15s,background .15s;position:relative;
+}
+#drop-zone.drag-over{border-color:var(--a);background:var(--g)}
+#drop-zone.has-file{border-color:var(--gn);border-style:solid;background:#E6F8F2}
+.dz-icon{font-size:2rem;margin-bottom:12px}
+.dz-title{font-size:.88rem;font-weight:700;margin-bottom:6px}
+.dz-sub{font-size:.78rem;color:var(--m)}
+#drop-zone input[type="file"]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;
+}
+#file-info{font-size:.8rem;color:var(--gn);font-weight:600;margin-top:10px}
+
+/* ── Generate button ── */
+#gen-btn{
+  width:100%;font-size:.82rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  padding:14px;background:var(--k);color:var(--w);border:2px solid var(--k);
+  cursor:pointer;margin-top:6px;transition:background .12s;
+}
+#gen-btn:hover:not(:disabled){background:#222}
+#gen-btn:disabled{background:var(--m);border-color:var(--m);cursor:not-allowed}
+
+/* ── Progress ── */
+#gen-progress{
+  display:none;text-align:center;padding:28px;background:var(--g);margin-top:16px;
+}
+.progress-spinner{
+  width:36px;height:36px;border:3px solid var(--lg);border-top-color:var(--a);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress-msg{font-size:.82rem;color:var(--m)}
+
+/* ── Paper preview ── */
+#paper-preview{display:none}
+.paper-hdr{
+  background:var(--k);color:var(--w);padding:20px 24px;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;
+}
+.paper-hdr h2{font-size:1.1rem;font-weight:700}
+.paper-stats{display:flex;gap:20px;flex-wrap:wrap}
+.stat-box{text-align:center}
+.stat-box .sv{font-size:1.3rem;font-weight:700;color:var(--a)}
+.stat-box .sl{font-size:.6rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.q-list{border:1px solid var(--lg)}
+.q-row{display:flex;gap:0;border-bottom:1px solid var(--lg)}
+.q-row:last-child{border-bottom:none}
+.q-col-num{flex:0 0 60px;padding:14px 12px;font-size:.7rem;font-weight:700;color:var(--m);
+             background:var(--g);border-right:1px solid var(--lg);text-align:center;
+             display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.q-col-text{flex:1;padding:14px 16px;font-size:.88rem;line-height:1.6;color:var(--k)}
+.q-col-marks{flex:0 0 80px;padding:14px 12px;text-align:center;border-left:1px solid var(--lg);
+              font-size:.9rem;font-weight:700;color:var(--a);display:flex;align-items:center;justify-content:center}
+.sec-label{
+  padding:8px 16px;background:var(--k);color:var(--w);
+  font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--a);
+}
+.q-type-badge{font-size:.55rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+               padding:2px 5px;border:1px solid;display:inline-block;margin-top:3px}
+.q-type-badge.short{color:var(--gn);border-color:var(--gn)}
+.q-type-badge.long{color:var(--or);border-color:var(--or)}
+
+/* ── Publish controls ── */
+.publish-bar{
+  display:flex;gap:12px;align-items:center;justify-content:space-between;
+  padding:20px 24px;background:var(--g);border:1px solid var(--lg);
+  margin-top:20px;flex-wrap:wrap;
+}
+.pub-note{font-size:.8rem;color:var(--m);flex:1}
+.btn{font-size:.75rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+     padding:11px 22px;border:2px solid var(--k);cursor:pointer;transition:all .12s;white-space:nowrap}
+.btn-primary{background:var(--k);color:var(--w)}.btn-primary:hover{background:#222}
+.btn-danger{background:var(--rd);color:var(--w);border-color:var(--rd)}.btn-danger:hover{background:#AA0000}
+.btn-outline{background:transparent;color:var(--k)}.btn-outline:hover{background:var(--k);color:var(--w)}
+
+/* ── Published screen ── */
+#pub-success{display:none;padding:28px;text-align:center;border:2px solid var(--gn);background:#E6F8F2}
+.pub-check{font-size:2rem;margin-bottom:8px}
+.pub-title{font-size:1.1rem;font-weight:700;color:var(--gn)}
+.pub-exam-id{font-family:monospace;font-size:.85rem;background:var(--w);padding:6px 12px;
+              margin-top:8px;display:inline-block;border:1px solid var(--lg)}
+
+/* ── Error/info ── */
+.banner{padding:12px 16px;margin-top:12px;font-size:.82rem;font-weight:600;border:1.5px solid}
+.banner.err{border-color:var(--rd);color:var(--rd);background:#FFE6E6}
+.banner.ok{border-color:var(--gn);color:#005C3A;background:#E6F8F2}
+
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo"><span>OS</span>EDUCATION CENTER</div>
+  <div class="nav-right">
+    <a href="/teacher/dashboard" class="nav-link">Dashboard</a>
+    <a href="/teacher/exams"     class="nav-link">My Exams</a>
+    <a href="/teacher/generate-exam" class="nav-link active">Generate Exam</a>
+  </div>
+</nav>
+
+<main>
+  <div class="ph">
+    <div class="ph-label">Teacher Portal</div>
+    <h1 class="ph-title">Generate AI Exam Paper</h1>
+    <p class="ph-sub">
+      Upload a PDF of study material — Groq AI will analyze it and generate
+      a unique 100-mark exam paper. Every generation produces a different question
+      pattern, structure, and emphasis.
+    </p>
+  </div>
+
+  <!-- Step indicator -->
+  <div class="steps">
+    <div class="step active" id="s1"><div class="step-n">1</div><div class="step-lbl">Upload PDF</div></div>
+    <div class="step"        id="s2"><div class="step-n">2</div><div class="step-lbl">AI Generates</div></div>
+    <div class="step"        id="s3"><div class="step-n">3</div><div class="step-lbl">Review Paper</div></div>
+    <div class="step"        id="s4"><div class="step-n">4</div><div class="step-lbl">Publish</div></div>
+  </div>
+
+  <!-- STEP 1: Upload -->
+  <div id="step-upload">
+    <div class="card">
+      <div class="card-title">Step 1 — Upload Study Material PDF</div>
+
+      <div class="fgroup">
+        <label for="course-sel">Select Course</label>
+        <select id="course-sel">
+          <option value="">Loading courses...</option>
+        </select>
+      </div>
+
+      <div class="fgroup">
+        <label>PDF File</label>
+        <div id="drop-zone">
+          <input type="file" id="pdf-input" accept=".pdf" onchange="onFileSelect(this)"/>
+          <div class="dz-icon">📄</div>
+          <div class="dz-title">Drop your PDF here, or click to browse</div>
+          <div class="dz-sub">Maximum 20 MB · Text-based PDFs only (not scanned images)</div>
+          <div id="file-info"></div>
+        </div>
+      </div>
+
+      <div id="upload-error" class="banner err hidden"></div>
+
+      <button id="gen-btn" onclick="generatePaper()" disabled>
+        Generate Exam Paper with AI →
+      </button>
+    </div>
+  </div>
+
+  <!-- STEP 2: Generating progress -->
+  <div id="step-generating" class="hidden">
+    <div class="card">
+      <div class="card-title">Step 2 — AI is Analyzing Your PDF</div>
+      <div id="gen-progress" style="display:block">
+        <div class="progress-spinner"></div>
+        <div class="progress-msg" id="gen-msg">Extracting text from PDF...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3+4: Paper preview + publish -->
+  <div id="step-review" class="hidden">
+    <div id="paper-preview">
+
+      <!-- Paper header -->
+      <div class="paper-hdr">
+        <div>
+          <div style="font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:#666;margin-bottom:4px">
+            AI-Generated Draft Paper
+          </div>
+          <h2 id="pr-title">Exam Paper</h2>
+        </div>
+        <div class="paper-stats">
+          <div class="stat-box"><div class="sv" id="pr-total">100</div><div class="sl">Total Marks</div></div>
+          <div class="stat-box"><div class="sv" id="pr-qcount">0</div><div class="sl">Questions</div></div>
+          <div class="stat-box"><div class="sv">3 Hrs</div><div class="sl">Duration</div></div>
+        </div>
+      </div>
+
+      <!-- Instructions box -->
+      <div style="padding:12px 20px;background:#EEF2FF;border:1px solid #C7D3FF;
+                  font-size:.82rem;line-height:1.6;color:#1A1A4A;border-top:none" id="pr-instructions">
+      </div>
+
+      <!-- Questions -->
+      <div class="q-list" id="pr-questions" style="margin-top:16px"></div>
+
+      <!-- Publish bar -->
+      <div class="publish-bar">
+        <div class="pub-note">
+          Review all questions above. When satisfied, click Publish to make this exam
+          available to students. You can also discard and regenerate with a new structure.
+        </div>
+        <button class="btn btn-outline" onclick="discardAndRegenerate()">Discard &amp; Regenerate</button>
+        <button class="btn btn-primary" onclick="publishPaper()">Publish Exam →</button>
+      </div>
+
+      <!-- Success after publish -->
+      <div id="pub-success">
+        <div class="pub-check">✅</div>
+        <div class="pub-title">Exam Published Successfully!</div>
+        <p style="font-size:.82rem;color:#333;margin-top:6px">Exam ID:</p>
+        <div class="pub-exam-id" id="pub-exam-id">—</div>
+        <p style="font-size:.78rem;color:var(--m);margin-top:10px">
+          Students can now start this exam from their portal.
+        </p>
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:16px">
+          <button class="btn btn-outline" onclick="generateAnother()">Generate Another Paper</button>
+          <a href="/teacher/exams" class="btn btn-primary">View My Exams →</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ── State ── */
+const S = {
+  paperId   : null,
+  courseId  : null,
+  questions : [],
+};
+
+/* ── Boot ── */
+document.addEventListener("DOMContentLoaded", () => {
+  loadCourses();
+  setupDropZone();
+});
+
+/* ── Load teacher's courses ── */
+async function loadCourses() {
+  try {
+    const res  = await apiFetch("/teacher/courses");
+    const data = await res.json();
+    const sel  = document.getElementById("course-sel");
+    sel.innerHTML = '<option value="">— Select a course —</option>';
+    (data.courses || []).forEach(c => {
+      sel.innerHTML += `<option value="${esc(c.course_id)}">${esc(c.name)}</option>`;
+    });
+    sel.addEventListener("change", checkFormReady);
+  } catch(e) {
+    document.getElementById("course-sel").innerHTML =
+      '<option value="">Failed to load courses</option>';
+  }
+}
+
+/* ── Drop zone ── */
+function setupDropZone() {
+  const dz = document.getElementById("drop-zone");
+  dz.addEventListener("dragover",  e => { e.preventDefault(); dz.classList.add("drag-over"); });
+  dz.addEventListener("dragleave", ()  => dz.classList.remove("drag-over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault(); dz.classList.remove("drag-over");
+    const file = e.dataTransfer.files[0];
+    if (file && file.type === "application/pdf") setFile(file);
+    else showUploadError("Please drop a PDF file.");
+  });
+}
+
+let selectedFile = null;
+function onFileSelect(input) {
+  if (input.files[0]) setFile(input.files[0]);
+}
+
+function setFile(file) {
+  if (file.size > 20 * 1024 * 1024) {
+    showUploadError("File too large. Maximum 20 MB."); return;
+  }
+  selectedFile = file;
+  const dz = document.getElementById("drop-zone");
+  dz.classList.add("has-file");
+  document.getElementById("file-info").textContent =
+    `Selected: ${file.name} (${(file.size/1024).toFixed(0)} KB)`;
+  hideUploadError();
+  checkFormReady();
+}
+
+function checkFormReady() {
+  const ready = selectedFile && document.getElementById("course-sel").value;
+  document.getElementById("gen-btn").disabled = !ready;
+}
+
+/* ── Generate ── */
+async function generatePaper() {
+  const courseId = document.getElementById("course-sel").value;
+  if (!courseId || !selectedFile) return;
+
+  S.courseId = courseId;
+
+  // Switch to generating step
+  goStep(2);
+  setGenMsg("Uploading PDF...");
+
+  const fd = new FormData();
+  fd.append("file",      selectedFile);
+  fd.append("course_id", courseId);
+
+  try {
+    setGenMsg("Extracting text from PDF...");
+    await sleep(800);
+    setGenMsg("Sending to Groq AI for analysis...");
+
+    const res  = await fetch("/api/teacher/exam/generate", {
+      method  : "POST",
+      headers : {"Authorization": `Bearer ${getToken()}`},
+      body    : fd,
+    });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.error || "Generation failed");
+
+    setGenMsg("Building question paper...");
+    await sleep(600);
+
+    S.paperId   = data.paper_id;
+    S.questions = data.questions || [];
+    renderPreview(data);
+    goStep(3);
+
+  } catch(e) {
+    goStep(1);
+    showUploadError("Failed to generate paper: " + e.message);
+  }
+}
+
+/* ── Render preview ── */
+function renderPreview(data) {
+  document.getElementById("pr-title").textContent        = data.paper_title || "Exam Paper";
+  document.getElementById("pr-total").textContent        = data.total_marks || 100;
+  document.getElementById("pr-qcount").textContent       = (data.questions||[]).length;
+  document.getElementById("pr-instructions").textContent = data.instructions || "Answer all questions.";
+
+  let html = ""; let currSec = "";
+  (data.questions||[]).forEach((q,i) => {
+    const sec = q.section || "A";
+    if (sec !== currSec) {
+      currSec = sec;
+      html += `<div class="sec-label">Section ${sec}</div>`;
+    }
+    const type = q.type || "short";
+    html += `
+    <div class="q-row">
+      <div class="q-col-num">
+        Q${i+1}
+        <span class="q-type-badge ${type}">${type}</span>
+      </div>
+      <div class="q-col-text">${esc(q.question)}</div>
+      <div class="q-col-marks">${q.marks}M</div>
+    </div>`;
+  });
+
+  document.getElementById("pr-questions").innerHTML = html;
+  document.getElementById("paper-preview").style.display = "block";
+}
+
+/* ── Publish ── */
+async function publishPaper() {
+  if (!S.paperId) return;
+
+  const btn = document.querySelector(".btn-primary");
+  btn.disabled = true; btn.textContent = "Publishing...";
+
+  try {
+    const res  = await apiFetch(`/teacher/exam/papers/${S.paperId}/publish`, "POST");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Publish failed");
+
+    document.getElementById("pub-exam-id").textContent = data.exam_id;
+    document.getElementById("pub-success").style.display = "block";
+    goStep(4);
+    document.querySelector(".publish-bar").style.display = "none";
+
+  } catch(e) {
+    btn.disabled = false; btn.textContent = "Publish Exam →";
+    alert("Publish failed: " + e.message);
+  }
+}
+
+function discardAndRegenerate() {
+  if (!confirm("Discard this paper and generate a new one?")) return;
+  S.paperId = null; S.questions = [];
+  if (S.paperId) {
+    apiFetch(`/teacher/exam/papers/${S.paperId}`, "DELETE").catch(()=>{});
+  }
+  goStep(1);
+  document.getElementById("paper-preview").style.display = "none";
+}
+
+function generateAnother() {
+  S.paperId = null; S.questions = [];
+  selectedFile = null;
+  document.getElementById("pdf-input").value = "";
+  document.getElementById("drop-zone").classList.remove("has-file");
+  document.getElementById("file-info").textContent = "";
+  document.getElementById("pub-success").style.display = "none";
+  document.getElementById("paper-preview").style.display = "none";
+  document.getElementById("gen-btn").disabled = true;
+  goStep(1);
+}
+
+/* ── Steps ── */
+function goStep(n) {
+  const steps = ["step-upload","step-generating","step-review","step-review"];
+  document.getElementById("step-upload").classList.add("hidden");
+  document.getElementById("step-generating").classList.add("hidden");
+  document.getElementById("step-review").classList.add("hidden");
+  document.getElementById(steps[n-1]).classList.remove("hidden");
+
+  for (let i=1;i<=4;i++) {
+    const el = document.getElementById("s"+i);
+    el.classList.remove("active","done");
+    if (i < n)  el.classList.add("done");
+    if (i === n) el.classList.add("active");
+  }
+}
+
+/* ── Helpers ── */
+function setGenMsg(msg) { document.getElementById("gen-msg").textContent = msg; }
+function showUploadError(msg) {
+  const el = document.getElementById("upload-error");
+  el.textContent = msg; el.classList.remove("hidden");
+}
+function hideUploadError() {
+  document.getElementById("upload-error").classList.add("hidden");
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function getToken() {
+  return localStorage.getItem("osec_token") ||
+         sessionStorage.getItem("osec_token") || "";
+}
+function apiFetch(path, method="GET", body=null) {
+  const opts = {
+    method,
+    headers:{"Content-Type":"application/json","Authorization":`Bearer ${getToken()}`},
+  };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch("/api" + path, opts);
+}
+</script>
+</body>
+</html>

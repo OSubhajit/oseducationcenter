@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Results — OSEDu</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">My Results</div>
+      </div>
+    </header>
+    <main class="page-content">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Exam History</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Exam</th><th>Course</th><th>Score</th><th>%</th><th>Grade</th><th>Status</th><th>Date</th><th style="text-align:right">Certificate</th></tr></thead>
+            <tbody id="tbody"><tr><td colspan="8" style="text-align:center;color:var(--g5);padding:24px">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </main>
+  </div>
+</div>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireStudent()) throw "";
+renderSidebar("results","student");
+let page=1;
+
+async function loadResults(){
+  const res=await api.get(`/student/results?page=${page}&per_page=20`);
+  if(!res?.ok) return;
+  const {results=[],pagination={}} = res.data;
+  if(!results.length){
+    document.getElementById("tbody").innerHTML=`<tr><td colspan="8"><div class="empty"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg><p>No exam results yet. Appear for an exam to see your results here.</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML=""; return;
+  }
+  document.getElementById("tbody").innerHTML=results.map(r=>`<tr>
+    <td><span class="mono" style="font-size:11px">${escHtml(r.exam_id)}</span></td>
+    <td><span class="mono" style="font-size:11px">${escHtml(r.course_id||'—')}</span></td>
+    <td style="font-weight:500">${r.scored_marks??'—'} / ${r.total_marks??'—'}</td>
+    <td>${r.percentage!=null?r.percentage+'%':'—'}</td>
+    <td><span class="grade ${gradeClass(r.grade)}">${escHtml(r.grade||'—')}</span></td>
+    <td>${statusBadge(r.passed?'passed':'failed')}</td>
+    <td>${formatDate(r.created_at)}</td>
+    <td style="text-align:right">${r.cert_id?`<a href="/api/verify/${r.cert_id}/page" target="_blank" class="btn btn-ghost btn-sm">View</a>`:'—'}</td>
+  </tr>`).join("");
+  const el=document.getElementById("pagination"); let html="";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadResults()">${i}</button>`;
+  el.innerHTML=html;
+}
+loadResults();
+</script>
+</body></html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Assignments — OSEDu Teacher</title>
+<link rel="stylesheet" href="/static/css/osec.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebarContainer"></div>
+  <div class="main">
+    <header class="topbar">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="hamburger" onclick="openSidebar()"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div style="font-family:var(--fd);font-weight:600;font-size:16px">Assignments</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openCreateModal()">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        New Assignment
+      </button>
+    </header>
+    <main class="page-content">
+      <!-- Assignments list -->
+      <div class="card" id="assignmentCard">
+        <div class="card-header">
+          <span class="card-title" id="aCount">Assignments</span>
+          <select id="courseFilter" style="width:200px" onchange="page=1;loadAssignments()">
+            <option value="">All my courses</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Title</th><th>Course</th><th>Due Date</th><th>Max Score</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+
+      <!-- Submissions panel (shown when viewing an assignment) -->
+      <div class="card hidden" id="submissionsCard">
+        <div class="card-header">
+          <div>
+            <span class="card-title" id="subTitle">Submissions</span>
+            <div id="subCourse" style="font-size:12px;color:var(--g5);margin-top:2px"></div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="closeSubmissions()">← Back</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Student</th><th>Submitted</th><th>Status</th><th>Score</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="subTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Create Assignment Modal -->
+<div class="modal-backdrop hidden" id="createModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <h3>New Assignment</h3>
+      <button class="modal-close" onclick="closeModal('createModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="createErr" class="alert alert-error hidden"></div>
+      <div class="form-group"><label>Title *</label><input id="fTitle" type="text" placeholder="e.g. Unit 2 Practice Exercise"></div>
+      <div class="form-group"><label>Course *</label><select id="fCourse"><option value="">Select course…</option></select></div>
+      <div class="form-group"><label>Description</label><textarea id="fDesc" rows="3" placeholder="Assignment instructions…" style="resize:vertical"></textarea></div>
+      <div class="form-row">
+        <div class="form-group"><label>Due Date</label><input id="fDue" type="datetime-local"></div>
+        <div class="form-group"><label>Max Score</label><input id="fMax" type="number" min="1" max="1000" placeholder="100"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+      <button class="btn btn-primary" id="createBtn" onclick="createAssignment()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Grade Modal -->
+<div class="modal-backdrop hidden" id="gradeModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Grade Submission</h3>
+      <button class="modal-close" onclick="closeModal('gradeModal')"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div id="gradeErr" class="alert alert-error hidden"></div>
+      <div id="subPreview" style="background:var(--g1);padding:12px;border-radius:6px;margin-bottom:14px;font-size:13px"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Score *</label><input id="gScore" type="number" min="0" placeholder="e.g. 85"></div>
+        <div class="form-group"><label>Max Score</label><input id="gMax" type="number" disabled style="opacity:.6"></div>
+      </div>
+      <div class="form-group"><label>Feedback</label><textarea id="gFeedback" rows="3" placeholder="Optional feedback…" style="resize:vertical"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('gradeModal')">Cancel</button>
+      <button class="btn btn-primary" id="gradeBtn" onclick="submitGrade()">Save Grade</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/sidebar.js"></script>
+<script>
+if (!requireTeacher()) throw "";
+renderSidebar("assignments", "teacher");
+
+let page = 1, activeAssignment = null, activeSubmissionId = null;
+
+async function loadMyCourses() {
+  const res = await api.get("/teacher/dashboard");
+  if (!res?.ok) return;
+  const courses = res.data.courses_taught || [];
+  const opts = courses.map(c => `<option value="${c.course_id}">${escHtml(c.name||c.course_id)}</option>`).join("");
+  document.getElementById("courseFilter").innerHTML = `<option value="">All my courses</option>${opts}`;
+  document.getElementById("fCourse").innerHTML = `<option value="">Select course…</option>${opts}`;
+}
+
+async function loadAssignments() {
+  const cf = document.getElementById("courseFilter").value;
+  const res = await api.get(`/assignments/?page=${page}&per_page=20${cf?"&course_id="+cf:""}`);
+  if (!res?.ok) return;
+  const { assignments=[], pagination={} } = res.data;
+  document.getElementById("aCount").textContent = `Assignments (${pagination.total||assignments.length})`;
+  if (!assignments.length) {
+    document.getElementById("tbody").innerHTML = `<tr><td colspan="6"><div class="empty"><p>No assignments yet. Create your first one!</p></div></td></tr>`;
+    document.getElementById("pagination").innerHTML = ""; return;
+  }
+  document.getElementById("tbody").innerHTML = assignments.map(a => `<tr>
+    <td><span style="font-weight:500">${escHtml(a.title)}</span></td>
+    <td><span class="mono" style="font-size:11px">${escHtml(a.course_id||"—")}</span></td>
+    <td style="font-size:12.5px">${a.due_date ? formatDateTime(a.due_date) : "—"}</td>
+    <td>${a.max_score||"—"}</td>
+    <td style="font-size:12px;color:var(--g5)">${formatDate(a.created_at)}</td>
+    <td style="text-align:right">
+      <button class="btn btn-ghost btn-sm" onclick="viewSubmissions('${a.assignment_id}','${escHtml(a.title)}','${escHtml(a.course_id)}',${a.max_score||100})">Submissions</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteAssignment('${a.assignment_id}','${escHtml(a.title)}')">Delete</button>
+    </td>
+  </tr>`).join("");
+  const el = document.getElementById("pagination"); let html = "";
+  for(let i=1;i<=pagination.pages;i++) html+=`<button class="page-btn${i===page?" active":""}" onclick="page=${i};loadAssignments()">${i}</button>`;
+  el.innerHTML = html;
+}
+
+function openCreateModal() {
+  document.getElementById("createModal").classList.remove("hidden");
+  document.getElementById("createErr").classList.add("hidden");
+  ["fTitle","fDesc"].forEach(id => document.getElementById(id).value="");
+  document.getElementById("fMax").value="100";
+}
+function closeModal(id) { document.getElementById(id).classList.add("hidden"); }
+
+async function createAssignment() {
+  const btn = document.getElementById("createBtn");
+  const err = document.getElementById("createErr");
+  err.classList.add("hidden");
+  const title    = document.getElementById("fTitle").value.trim();
+  const courseId = document.getElementById("fCourse").value;
+  const desc     = document.getElementById("fDesc").value.trim();
+  const due      = document.getElementById("fDue").value;
+  const maxScore = parseInt(document.getElementById("fMax").value)||100;
+  if (!title||!courseId) { err.textContent="Title and course are required."; err.classList.remove("hidden"); return; }
+  showLoading(btn, "Creating…");
+  const body = { title, course_id:courseId, description:desc, max_score:maxScore };
+  if (due) body.due_date = new Date(due).toISOString();
+  const res = await api.post("/assignments/", body);
+  stopLoading(btn);
+  if (res?.ok) { closeModal("createModal"); showToast("Assignment created","success"); loadAssignments(); }
+  else { err.textContent=res?.data?.error||"Create failed."; err.classList.remove("hidden"); }
+}
+
+async function deleteAssignment(aId, title) {
+  if (!confirm(`Delete assignment "${title}"?`)) return;
+  const res = await api.delete(`/assignments/${aId}`);
+  if (res?.ok) { showToast("Assignment deleted","success"); loadAssignments(); }
+  else showToast(res?.data?.error||"Delete failed.","error");
+}
+
+async function viewSubmissions(aId, title, courseId, maxScore) {
+  activeAssignment = { id:aId, title, courseId, maxScore };
+  document.getElementById("assignmentCard").classList.add("hidden");
+  document.getElementById("submissionsCard").classList.remove("hidden");
+  document.getElementById("subTitle").textContent = `Submissions — ${title}`;
+  document.getElementById("subCourse").textContent = courseId;
+  const res = await api.get(`/assignments/${aId}/submissions`);
+  if (!res?.ok) { document.getElementById("subTbody").innerHTML=`<tr><td colspan="5"><div class="empty"><p>Failed to load submissions.</p></div></td></tr>`; return; }
+  const subs = res.data.submissions || [];
+  if (!subs.length) {
+    document.getElementById("subTbody").innerHTML=`<tr><td colspan="5"><div class="empty"><p>No submissions yet.</p></div></td></tr>`; return;
+  }
+  document.getElementById("subTbody").innerHTML = subs.map(s => `<tr>
+    <td><span style="font-weight:500">${escHtml(s.student_name||s.student_id)}</span><br><span class="mono" style="font-size:11px;color:var(--g5)">${escHtml(s.student_id)}</span></td>
+    <td style="font-size:12.5px">${formatDateTime(s.submitted_at)}</td>
+    <td>${statusBadge(s.status||"submitted")}</td>
+    <td>${s.score!=null?`${s.score}/${maxScore}`:"—"}</td>
+    <td style="text-align:right">
+      ${s.file_url?`<a href="${escHtml(s.file_url)}" target="_blank" class="btn btn-ghost btn-sm">View File</a>`:""}
+      ${s.text_content?`<button class="btn btn-ghost btn-sm" onclick="alert('${escHtml(s.text_content.substring(0,500))}')">View Text</button>`:""}
+      <button class="btn btn-primary btn-sm" onclick="openGrade('${s.submission_id}','${escHtml(s.student_name||s.student_id)}',${maxScore},${s.score!=null?s.score:"null"},'${escHtml(s.feedback||"")}')">Grade</button>
+    </td>
+  </tr>`).join("");
+}
+
+function closeSubmissions() {
+  document.getElementById("submissionsCard").classList.add("hidden");
+  document.getElementById("assignmentCard").classList.remove("hidden");
+}
+
+function openGrade(subId, studentName, maxScore, currentScore, currentFeedback) {
+  activeSubmissionId = subId;
+  document.getElementById("gradeModal").classList.remove("hidden");
+  document.getElementById("gradeErr").classList.add("hidden");
+  document.getElementById("subPreview").textContent = `Student: ${studentName}`;
+  document.getElementById("gScore").value = currentScore != null && currentScore !== "null" ? currentScore : "";
+  document.getElementById("gMax").value = maxScore;
+  document.getElementById("gFeedback").value = currentFeedback||"";
+}
+
+async function submitGrade() {
+  const btn = document.getElementById("gradeBtn");
+  const err = document.getElementById("gradeErr");
+  err.classList.add("hidden");
+  const score    = document.getElementById("gScore").value;
+  const feedback = document.getElementById("gFeedback").value.trim();
+  if (score === "") { err.textContent="Score is required."; err.classList.remove("hidden"); return; }
+  showLoading(btn, "Saving…");
+  const res = await api.put(`/assignments/submissions/${activeSubmissionId}/grade`, { score: parseFloat(score), feedback });
+  stopLoading(btn);
+  if (res?.ok) {
+    closeModal("gradeModal"); showToast("Grade saved","success");
+    viewSubmissions(activeAssignment.id, activeAssignment.title, activeAssignment.courseId, activeAssignment.maxScore);
+  } else { err.textContent=res?.data?.error||"Grade failed."; err.classList.remove("hidden"); }
+}
+
+loadMyCourses().then(loadAssignments);
+</script>
+</body></html>
